@@ -133,7 +133,7 @@ class BybitAPI:
             self.logger.exception(f"get_balance request failed: {e}")
             return None
 
-    async def place_order(self, symbol: str, side: str, order_type: str, qty: float, price: float = None, timeInForce: str = TIME_IN_FORCE, reduce_only: bool = False, close_on_trigger: bool = False, category: str = CATEGORY_LINEAR, stop_loss: float = None, take_profit: float = None):
+    async def place_order(self, symbol: str, side: str, order_type: str, qty: float, price: float = None, timeInForce: str = TIME_IN_FORCE, reduce_only: bool = False, close_on_trigger: bool = False, stop_loss: float = None, take_profit: float = None, category: str = CATEGORY_LINEAR):
         """Places an order, including support for stop loss and take profit orders."""
         data = {
             "category": category,
@@ -219,6 +219,13 @@ class BybitAPI:
 
 # --- Trading Bot Class ---
 class TradingBot:
+
+    # Define constants
+    TIME_INTERVAL = "5"
+    RSI_LOOKBACK = 14
+    BOLLINGER_WINDOW = 20
+    BOLLINGER_STD_DEV = 2
+
     def __init__(self, config_file: str):
         self.config_file = config_file
         self.config = self._load_config(config_file)
@@ -373,27 +380,38 @@ class TradingBot:
     async def trading_strategy(self, symbol: str, category: str):
         """Executes the trading strategy based on the provided symbol and category."""
         try:
-            symbol_config = next((sc for sc in self.symbols if sc["symbol"] == symbol), None)
+            symbol_config = self.get_symbol_config(symbol)
             if not symbol_config:
-                self.logger.error(f"Symbol configuration not found for {symbol}")
                 return
 
             if symbol_config.get("trading_enabled", True):
-                # --- Get Klines ---
-                klines = await self.api.get_klines(symbol, symbol_config.get("time_interval", "5"), limit=max(symbol_config.get("rsi_lookback", 14), symbol_config.get("bollinger_window", 20)) + 10) # Ensure enough data for calculations, and a little more
+                klines = await self.fetch_klines(symbol, symbol_config)
                 if not klines:
-                    self.logger.error(f"No kline data received for {symbol}")
                     return
 
-                # --- Convert klines to DataFrame and check data integrity ---
-                df = pd.DataFrame(klines, columns=["open_time", "open", "high", "low", "close", "volume", "turnover"])
-                df["close"] = pd.to_numeric(df["close"])
+                df = self.convert_klines_to_dataframe(klines)
                 if df["close"].isnull().any():
                     self.logger.error(f"Missing closing prices in klines for {symbol}")
                     return
 
-                # --- Indicators ---
-                rsi_values = ta.momentum.RSIIndicator(close=df["close"], window=symbol_config["rsi_lookback"]).rsi()
-                rsi = rsi_values.iloc[-1]
+                rsi = self.calculate_rsi(df, symbol_config)
+                bollinger = self.calculate_bollinger_bands(df, symbol_config)
 
-                bollinger = ta.volatility.BollingerBands(close=df["close"], window=symbol_config["bollinger_window"], window_dev=symbol_config["bollinger_std_dev"])
+                # Implement your trading logic here
+                # ...
+
+        except Exception as e:
+            self.logger.exception(f"Error in trading strategy for {symbol}: {e}")
+
+    def get_symbol_config(self, symbol: str) -> Dict:
+        """Fetches the symbol configuration."""
+        symbol_config = next((sc for sc in self.symbols if sc["symbol"] == symbol), None)
+        if not symbol_config:
+            self.logger.error(f"Symbol configuration not found for {symbol}")
+        return symbol_config
+
+    async def fetch_klines(self, symbol: str, symbol_config: Dict) -> List:
+        """Fetches the klines data for the given symbol."""
+        klines = await self.api.get_klines(symbol, symbol_config.get("time_interval", self.TIME_INTERVAL),
+                                           limit=max(symbol_config.get("rsi_lookback", self.RSI_LOOKBACK),
+                                                     symbol_config.get("bollinger_window
