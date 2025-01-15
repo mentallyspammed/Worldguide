@@ -29,6 +29,7 @@ VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W"]
 @dataclass
 class Config:
     """Handles the loading of configuration settings."""
+
     api_key: str = None
     api_secret: str = None
     base_url: str = "https://api.bybit.com"
@@ -49,7 +50,9 @@ class Config:
         self.base_url = os.getenv("BYBIT_BASE_URL", self.base_url)
         self.log_level = os.getenv("LOG_LEVEL", self.log_level).upper()
         if not self.api_key or not self.api_secret:
-            raise ValueError("API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env")
+            raise ValueError(
+                "API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env"
+            )
         # Consider reading from a JSON config file later, as this is more user-friendly.
 
     def __repr__(self):
@@ -89,7 +92,9 @@ def calculate_wma(data: pd.Series, period: int) -> pd.Series:
     if len(data) < period:
         return pd.Series([np.nan] * len(data), index=data.index)
     weights = np.arange(1, period + 1)
-    return data.rolling(window=period).apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+    return data.rolling(window=period).apply(
+        lambda x: np.dot(x, weights) / weights.sum(), raw=True
+    )
 
 
 # --- Bybit API Client ---
@@ -104,21 +109,45 @@ class Bybit:
     def _generate_signature(self, params: dict) -> str:
         """Generates the signature for Bybit API requests."""
         param_str = "&".join(f"{key}={value}" for key, value in sorted(params.items()))
-        return hmac.new(self.config.api_secret.encode(), param_str.encode(), hashlib.sha256).hexdigest()
+        return hmac.new(
+            self.config.api_secret.encode(), param_str.encode(), hashlib.sha256
+        ).hexdigest()
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """Fetches kline data from Bybit API."""
         endpoint = "/v5/market/kline"
-        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+            "category": "linear",
+        }
         response = self._request("GET", endpoint, params)
         if response.get("retCode") == 0 and response.get("result"):
             klines = response["result"]["list"]
             df = pd.DataFrame(
                 klines,
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
-            df["start_time"] = pd.to_datetime(pd.to_numeric(df["start_time"]), unit="ms")  # Corrected
-            df = df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            df["start_time"] = pd.to_datetime(
+                pd.to_numeric(df["start_time"]), unit="ms"
+            )  # Corrected
+            df = df.astype(
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
+            )
             return df
         return pd.DataFrame()
 
@@ -131,7 +160,9 @@ class Bybit:
             try:
                 return float(response["result"]["list"][0]["lastPrice"])
             except (KeyError, IndexError, ValueError):
-                self.logger.error(f"Could not extract last price from response: {response}")
+                self.logger.error(
+                    f"Could not extract last price from response: {response}"
+                )
                 return None
         return None
 
@@ -142,7 +173,9 @@ class Bybit:
             try:
                 params = params or {}
                 params["api_key"] = self.config.api_key
-                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["timestamp"] = str(
+                    int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000)
+                )
                 params["sign"] = self._generate_signature(params)
                 url = f"{self.config.base_url}{endpoint}"
                 response = self.session.request(method, url, params=params)
@@ -152,26 +185,45 @@ class Bybit:
                     data = response.json()
                 except requests.exceptions.JSONDecodeError:
                     self.logger.error(f"Failed to parse JSON response: {response.text}")
-                    raise APIError("Invalid JSON response", response=response, status_code=response.status_code)
+                    raise APIError(
+                        "Invalid JSON response",
+                        response=response,
+                        status_code=response.status_code,
+                    )
                 if data.get("retCode") != 0:
-                    self.logger.error(f"Bybit API Error - Code: {data.get('retCode')}, Msg: {data.get('retMsg')}")
-                    raise APIError(f"Bybit API Error: {data.get('retMsg')}", response=response, status_code=response.status_code, ret_code=data.get('retCode'))
+                    self.logger.error(
+                        f"Bybit API Error - Code: {data.get('retCode')}, Msg: {data.get('retMsg')}"
+                    )
+                    raise APIError(
+                        f"Bybit API Error: {data.get('retMsg')}",
+                        response=response,
+                        status_code=response.status_code,
+                        ret_code=data.get("retCode"),
+                    )
                 return data
             except requests.RequestException as e:
-                self.logger.error(f"Request Exception: {e}, Retrying {retries + 1} of {MAX_RETRIES} after {RETRY_DELAY} seconds")
+                self.logger.error(
+                    f"Request Exception: {e}, Retrying {retries + 1} of {MAX_RETRIES} after {RETRY_DELAY} seconds"
+                )
                 retries += 1
                 time.sleep(RETRY_DELAY)
             except APIError as e:
-                self.logger.error(f"API Error: {e}. Retrying {retries + 1} of {MAX_RETRIES} after {RETRY_DELAY} seconds")
+                self.logger.error(
+                    f"API Error: {e}. Retrying {retries + 1} of {MAX_RETRIES} after {RETRY_DELAY} seconds"
+                )
                 retries += 1
                 time.sleep(RETRY_DELAY)
-        self.logger.error(f"Max retries exceeded for: {method} {endpoint} with params {params}")
+        self.logger.error(
+            f"Max retries exceeded for: {method} {endpoint} with params {params}"
+        )
         raise APIError(f"Max retries exceeded for: {method} {endpoint}")
 
     def validate_interval(self, interval: str):
         """Validates given timeframe interval to be within accepted values."""
         if interval not in VALID_INTERVALS:
-            raise ValueError(f"Invalid interval: {interval}. Must be one of: {', '.join(VALID_INTERVALS)}")
+            raise ValueError(
+                f"Invalid interval: {interval}. Must be one of: {', '.join(VALID_INTERVALS)}"
+            )
 
 
 # --- Sorting Algorithms ---
@@ -239,16 +291,26 @@ class TechnicalIndicators:
         self.df["MACD"] = MACD(self.df["close"]).macd()
         self.df["RSI"] = rsi(self.df["close"], window=self.config.rsi_window)
         self.df["EMA_200"] = EMAIndicator(self.df["close"], window=200).ema_indicator()
-        self.df["fast_ma"] = EMAIndicator(self.df["close"], window=self.config.fast_ma_window).ema_indicator()
-        self.df["slow_ma"] = EMAIndicator(self.df["close"], window=self.config.slow_ma_window).ema_indicator()
-        self.df["ADX"] = ADXIndicator(self.df['high'], self.df['low'], self.df['close']).adx()
-        self.df["ATR"] = AverageTrueRange(self.df['high'], self.df['low'], self.df['close']).average_true_range()
+        self.df["fast_ma"] = EMAIndicator(
+            self.df["close"], window=self.config.fast_ma_window
+        ).ema_indicator()
+        self.df["slow_ma"] = EMAIndicator(
+            self.df["close"], window=self.config.slow_ma_window
+        ).ema_indicator()
+        self.df["ADX"] = ADXIndicator(
+            self.df["high"], self.df["low"], self.df["close"]
+        ).adx()
+        self.df["ATR"] = AverageTrueRange(
+            self.df["high"], self.df["low"], self.df["close"]
+        ).average_true_range()
         self.df["OBV"] = on_balance_volume(self.df["close"], self.df["volume"])
-        self.df["VPT"] = volume_price_trend(self.df['close'], self.df['volume'])
-        aroon = AroonIndicator(high=self.df['high'], low=self.df['low'])  # Corrected
+        self.df["VPT"] = volume_price_trend(self.df["close"], self.df["volume"])
+        aroon = AroonIndicator(high=self.df["high"], low=self.df["low"])  # Corrected
         self.df["Aroon_Up"] = aroon.aroon_up()
         self.df["Aroon_Down"] = aroon.aroon_down()
-        self.df["CMF"] = chaikin_money_flow(self.df['high'], self.df['low'], self.df['close'], self.df['volume'])  # Corrected
+        self.df["CMF"] = chaikin_money_flow(
+            self.df["high"], self.df["low"], self.df["close"], self.df["volume"]
+        )  # Corrected
 
 
 # --- TradingAnalyzer ---
@@ -280,8 +342,9 @@ class TradingAnalyzer:
         self.bybit.validate_interval(interval)
         return interval
 
-
-    def identify_support_resistance(self) -> Tuple[List[Optional[float]], List[Optional[float]]]:
+    def identify_support_resistance(
+        self,
+    ) -> Tuple[List[Optional[float]], List[Optional[float]]]:
         """Identifies support and resistance levels with volume confirmation and ensures the list
         is always of 3, returns None when less than 3 are identified."""
         sensitivity = self.config.cluster_sensitivity
@@ -294,13 +357,19 @@ class TradingAnalyzer:
 
         for i in range(window, len(data) - window):
             # Identify local maximum
-            if data[i] > np.max(data[i - window:i]) and data[i] > np.max(data[i + 1:i + window]):
-                peak_volume = np.mean(volume[i - volume_lookback: i + volume_lookback])
+            if data[i] > np.max(data[i - window : i]) and data[i] > np.max(
+                data[i + 1 : i + window]
+            ):
+                peak_volume = np.mean(volume[i - volume_lookback : i + volume_lookback])
                 if peak_volume > np.mean(volume):
                     maxima.append((data[i], peak_volume))
             # Identify local minimum
-            elif data[i] < np.min(data[i - window:i]) and data[i] < np.min(data[i + 1:i + window]):
-                trough_volume = np.mean(volume[i - volume_lookback: i + volume_lookback])
+            elif data[i] < np.min(data[i - window : i]) and data[i] < np.min(
+                data[i + 1 : i + window]
+            ):
+                trough_volume = np.mean(
+                    volume[i - volume_lookback : i + volume_lookback]
+                )
                 if trough_volume > np.mean(volume):
                     minima.append((data[i], trough_volume))
 
@@ -318,10 +387,11 @@ class TradingAnalyzer:
 
         return maxima_levels[:3], minima_levels[:3]
 
-
     def determine_trend(self) -> str:
         """Determines the current trend based on moving average crossover."""
-        if self.df.empty or len(self.df) < max(self.config.fast_ma_window, self.config.slow_ma_window):
+        if self.df.empty or len(self.df) < max(
+            self.config.fast_ma_window, self.config.slow_ma_window
+        ):
             return "neutral"
 
         current_fast_ma = self.df["fast_ma"].iloc[-1]
@@ -337,7 +407,6 @@ class TradingAnalyzer:
         else:
             return "neutral"
 
-
     def determine_entry_signal(self, current_price: float) -> str | None:
         """Determines an entry signal based on trend, RSI, and support/resistance."""
         trend = self.determine_trend()
@@ -346,21 +415,45 @@ class TradingAnalyzer:
         current_rsi = self.df["RSI"].iloc[-1]
         supports, resistances = self.identify_support_resistance()
 
-        if trend == "bullish" and current_rsi < self.config.rsi_oversold and any(
-          support is not None and abs(current_price - support) < 0.02 * current_price for support in supports):
+        if (
+            trend == "bullish"
+            and current_rsi < self.config.rsi_oversold
+            and any(
+                support is not None
+                and abs(current_price - support) < 0.02 * current_price
+                for support in supports
+            )
+        ):
             return "long"
-        elif trend == "bearish" and current_rsi > self.config.rsi_overbought and any(
-          resistance is not None and abs(current_price - resistance) < 0.02 * current_price for resistance in resistances):
+        elif (
+            trend == "bearish"
+            and current_rsi > self.config.rsi_overbought
+            and any(
+                resistance is not None
+                and abs(current_price - resistance) < 0.02 * current_price
+                for resistance in resistances
+            )
+        ):
             return "short"
         else:
-          return "neutral"
+            return "neutral"
 
     def analyze(self, current_price: float):
         """Analyzes the market using technical indicators and generates trading signals."""
         supports, resistances = self.identify_support_resistance()
         trend = self.determine_trend()
         entry_signal = self.determine_entry_signal(current_price)
-        take_profit = round(current_price * (1.02 if entry_signal == "long" else 0.98 if entry_signal == "short" else 1.00), 2)
+        take_profit = round(
+            current_price
+            * (
+                1.02
+                if entry_signal == "long"
+                else 0.98
+                if entry_signal == "short"
+                else 1.00
+            ),
+            2,
+        )
 
         # Fetch current indicator values:
         current_sma_50 = self.df["SMA_50"].iloc[-1]
@@ -377,14 +470,17 @@ class TradingAnalyzer:
         current_aroon_down = self.df["Aroon_Down"].iloc[-1]
         current_cmf = self.df["CMF"].iloc[-1]
 
-
         self.logger.info(f"{Fore.YELLOW}Current Price:{Fore.GREEN} {current_price:.2f}")
-        self.logger.info(f"{Fore.YELLOW}Trend Direction:{Fore.CYAN} {trend.capitalize()}")
+        self.logger.info(
+            f"{Fore.YELLOW}Trend Direction:{Fore.CYAN} {trend.capitalize()}"
+        )
         self.logger.info(f"{Fore.YELLOW}Support Levels:{Fore.BLUE} {supports}")
         self.logger.info(f"{Fore.YELLOW}Resistance Levels:{Fore.RED} {resistances}")
-        self.logger.info(f"{Fore.YELLOW}Predicted Take Profit Level:{Fore.MAGENTA} {take_profit:.2f}")
+        self.logger.info(
+            f"{Fore.YELLOW}Predicted Take Profit Level:{Fore.MAGENTA} {take_profit:.2f}"
+        )
 
-        #output of all indicator values:
+        # output of all indicator values:
         self.logger.info(f"{Fore.YELLOW}SMA_50:{Fore.GREEN} {current_sma_50:.2f}")
         self.logger.info(f"{Fore.YELLOW}MACD:{Fore.CYAN} {current_macd:.2f}")
         self.logger.info(f"{Fore.YELLOW}RSI:{Fore.BLUE} {current_rsi:.2f}")
@@ -396,13 +492,19 @@ class TradingAnalyzer:
         self.logger.info(f"{Fore.YELLOW}OBV:{Fore.RED} {current_obv:.2f}")
         self.logger.info(f"{Fore.YELLOW}VPT:{Fore.MAGENTA} {current_vpt:.2f}")
         self.logger.info(f"{Fore.YELLOW}Aroon Up:{Fore.YELLOW} {current_aroon_up:.2f}")
-        self.logger.info(f"{Fore.YELLOW}Aroon Down:{Fore.CYAN} {current_aroon_down:.2f}")
+        self.logger.info(
+            f"{Fore.YELLOW}Aroon Down:{Fore.CYAN} {current_aroon_down:.2f}"
+        )
         self.logger.info(f"{Fore.YELLOW}CMF:{Fore.BLUE} {current_cmf:.2f}")
 
         if entry_signal and entry_signal != "neutral":
-          self.logger.info(f"{Fore.GREEN}Entry Signal:{Fore.MAGENTA} {entry_signal.capitalize()}{Style.RESET_ALL}")
+            self.logger.info(
+                f"{Fore.GREEN}Entry Signal:{Fore.MAGENTA} {entry_signal.capitalize()}{Style.RESET_ALL}"
+            )
         else:
-          self.logger.info(f"{Fore.YELLOW}--- No Entry Signal at this time --- {Style.RESET_ALL}")
+            self.logger.info(
+                f"{Fore.YELLOW}--- No Entry Signal at this time --- {Style.RESET_ALL}"
+            )
 
 
 # --- Logging Setup ---
@@ -417,14 +519,20 @@ def setup_logger(config: Config, name: str) -> logging.Logger:
         logger.setLevel(config.log_level)
     except ValueError:
         logger.setLevel("INFO")  # Default
-        logger.error(f"Invalid LOG_LEVEL '{config.log_level}' specified. Defaulting to 'INFO'")
+        logger.error(
+            f"Invalid LOG_LEVEL '{config.log_level}' specified. Defaulting to 'INFO'"
+        )
     file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(file_handler)
     stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    stream_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(stream_handler)
-    init(autoreset=True) #colorama init
+    init(autoreset=True)  # colorama init
     return logger
 
 

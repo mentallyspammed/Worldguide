@@ -1,10 +1,14 @@
 import numpy as np
 import pandas as pd
 
+
 def weighted_moving_average(series, period):
     """Calculates Weighted Moving Average (WMA)."""
     weights = np.arange(1, period + 1)
-    return series.rolling(period).apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+    return series.rolling(period).apply(
+        lambda x: np.dot(x, weights) / weights.sum(), raw=True
+    )
+
 
 def calculate_hma(prices, period):
     """Calculates the Hull Moving Average (HMA)."""
@@ -21,13 +25,13 @@ def calculate_hma(prices, period):
     hma = weighted_moving_average(diff, int(np.sqrt(period)))
 
     return hma
-# Add HMA to DataFrame
-# df['hma'] = calculate_hma(df['close'], period=14)
+    # Add HMA to DataFrame
+    # df['hma'] = calculate_hma(df['close'], period=14)
 
-# Use HMA for trend determination
-# if df['hma'].iloc[-1] > df['hma'].iloc[-2]:
- #   trend = "upward"
-# elif df['hma'].iloc[-1] < df['hma'].iloc[-2]:
- #   trend = "downward"
-#else:
+    # Use HMA for trend determination
+    # if df['hma'].iloc[-1] > df['hma'].iloc[-2]:
+    #   trend = "upward"
+    # elif df['hma'].iloc[-1] < df['hma'].iloc[-2]:
+    #   trend = "downward"
+    # else:
     trend = "neutral"

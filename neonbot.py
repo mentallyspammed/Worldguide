@@ -20,7 +20,7 @@ LOG_DIR = "botlogs"
 ST_LOUIS_TZ = ZoneInfo("America/Chicago")
 MAX_RETRIES = 3
 RETRY_DELAY = 5
-VALID_INTERVALS = [1,_3,_5,_15,_30,_60,_240]
+VALID_INTERVALS = [1, _3, _5, _15, _30, _60, _240]
 CLUSTER_SENSITIVITY = 0.05
 SUPPORT_RESISTANCE_WINDOW = 14
 VOLUME_LOOKBACK = 5
@@ -33,6 +33,7 @@ ADX_THRESHOLD = 25
 
 # ... (rest of the code remains the same until the TradingAnalyzer class)
 
+
 class TradingAnalyzer:
     def __init__(self, symbol: str, interval: str, logger: logging.Logger):
         self.logger = logger
@@ -43,7 +44,8 @@ class TradingAnalyzer:
         self.df = self.fetch_and_prepare_data()
         if self.df.empty:
             raise ValueError(
-                "Failed to fetch data. Check your API key, symbol, and interval.")
+                "Failed to fetch data. Check your API key, symbol, and interval."
+            )
         self._add_technical_indicators()
 
     def calculate_fibonacci_pivots(self, high, low, close):
@@ -66,8 +68,7 @@ class TradingAnalyzer:
     def analyze(self, current_price: float):
         supports, resistances = self.identify_support_resistance()
         trend = self.determine_trend()
-        entry_signal = self.determine_entry_signal(
-            current_price, supports, resistances)
+        entry_signal = self.determine_entry_signal(current_price, supports, resistances)
 
         # Fibonacci Levels
         high = self.df["high"].max()
@@ -75,8 +76,7 @@ class TradingAnalyzer:
         fib_levels = fib(high, low)
         sorted_fib_levels = sorted(fib_levels.values())
         five_nearest_fib = sorted(
-            sorted_fib_levels,
-            key=lambda x: abs(x - current_price)
+            sorted_fib_levels, key=lambda x: abs(x - current_price)
         )[:5]
 
         # Fibonacci Pivots
@@ -86,10 +86,12 @@ class TradingAnalyzer:
 
         self.extended_trend_indicator()
         self.logger.info(
-            f"{Fore.YELLOW}Current Price: {current_price:.2f}{Style.RESET_ALL}")
+            f"{Fore.YELLOW}Current Price: {current_price:.2f}{Style.RESET_ALL}"
+        )
         self.logger.info(f"{Fore.YELLOW}Trend: {trend}{Style.RESET_ALL}")
         self.logger.info(
-            f"{Fore.YELLOW}5 Nearest Fibonacci Levels: {five_nearest_fib}{Style.RESET_ALL}")
+            f"{Fore.YELLOW}5 Nearest Fibonacci Levels: {five_nearest_fib}{Style.RESET_ALL}"
+        )
 
         # Print Fibonacci Pivots
         print(f"{Fore.MAGENTA}Fibonacci Pivots:{Style.RESET_ALL}")
@@ -98,7 +100,8 @@ class TradingAnalyzer:
 
         if entry_signal:
             self.logger.info(
-                f"{Fore.GREEN}Trade Signal: {entry_signal}{Style.RESET_ALL}")
+                f"{Fore.GREEN}Trade Signal: {entry_signal}{Style.RESET_ALL}"
+            )
         else:
             self.logger.info("No trade signal.")
 
@@ -112,35 +115,40 @@ class TradingAnalyzer:
             return pd.DataFrame()
 
     def _add_technical_indicators(self):
-        self.df["SMA_9"] = SMAIndicator(
-            self.df["close"], window=9).sma_indicator()
+        self.df["SMA_9"] = SMAIndicator(self.df["close"], window=9).sma_indicator()
         self.df["MACD"] = MACD(self.df["close"]).macd()
         self.df["RSI"] = rsi(self.df["close"], window=RSI_WINDOW)
-        self.df["EMA_200"] = EMAIndicator(
-            self.df["close"], window=200).ema_indicator()
+        self.df["EMA_200"] = EMAIndicator(self.df["close"], window=200).ema_indicator()
         self.df["fast_ma"] = EMAIndicator(
-            self.df["close"], window=FAST_MA_WINDOW).ema_indicator()
+            self.df["close"], window=FAST_MA_WINDOW
+        ).ema_indicator()
         self.df["slow_ma"] = EMAIndicator(
-            self.df["close"], window=SLOW_MA_WINDOW).ema_indicator()
+            self.df["close"], window=SLOW_MA_WINDOW
+        ).ema_indicator()
         self.df["ADX"] = ADXIndicator(
-            self.df["high"],
-            self.df["low"],
-            self.df["close"]).adx()
+            self.df["high"], self.df["low"], self.df["close"]
+        ).adx()
         self.df["momentum"] = self.df["close"].diff()
-        self.df["momentum_wma_10"] = self.df["momentum"].rolling(
-            window=10, win_type="triang").mean()
+        self.df["momentum_wma_10"] = (
+            self.df["momentum"].rolling(window=10, win_type="triang").mean()
+        )
         self.df["volume_ma_10"] = SMAIndicator(
-            self.df["volume"], window=10).sma_indicator()
+            self.df["volume"], window=10
+        ).sma_indicator()
 
     def identify_support_resistance(self) -> Tuple[List[float], List[float]]:
         data = self.df["close"].values
         maxima, minima = [], []
         for i in range(
-                SUPPORT_RESISTANCE_WINDOW,
-                len(data) - SUPPORT_RESISTANCE_WINDOW):
-            if data[i] == max(data[i_-_SUPPORT_RESISTANCE_WINDOW:i_+_SUPPORT_RESISTANCE_WINDOW]):
+            SUPPORT_RESISTANCE_WINDOW, len(data) - SUPPORT_RESISTANCE_WINDOW
+        ):
+            if data[i] == max(
+                data[i_ - _SUPPORT_RESISTANCE_WINDOW : i_ + _SUPPORT_RESISTANCE_WINDOW]
+            ):
                 maxima.append(data[i])
-            if data[i] == min(data[i_-_SUPPORT_RESISTANCE_WINDOW:i_+_SUPPORT_RESISTANCE_WINDOW]):
+            if data[i] == min(
+                data[i_ - _SUPPORT_RESISTANCE_WINDOW : i_ + _SUPPORT_RESISTANCE_WINDOW]
+            ):
                 minima.append(data[i])
         return sorted(maxima, reverse=True), sorted(minima)
 
@@ -159,10 +167,8 @@ class TradingAnalyzer:
         return abs(price - level) / price <= threshold
 
     def determine_entry_signal(
-            self,
-            current_price: float,
-            supports,
-            resistances) -> str | None:
+        self, current_price: float, supports, resistances
+    ) -> str | None:
         trend = self.determine_trend()
         if trend == "neutral":
             return None
@@ -176,14 +182,11 @@ class TradingAnalyzer:
         fib_pivots = self.calculate_fibonacci_pivots(
             self.df["high"].max(), self.df["low"].min(), self.df["close"].iloc[-1]
         )
-        near_fib = any(self.is_near_level(current_price, level)
-                       for level in fib_pivots.values())
-        near_support = any(self.is_near_level(current_price, s)
-                           for s in supports)
-        near_resistance = any(
-            self.is_near_level(
-                current_price,
-                r) for r in resistances)
+        near_fib = any(
+            self.is_near_level(current_price, level) for level in fib_pivots.values()
+        )
+        near_support = any(self.is_near_level(current_price, s) for s in supports)
+        near_resistance = any(self.is_near_level(current_price, r) for r in resistances)
 
         if (
             fast_ma > slow_ma
@@ -217,7 +220,7 @@ class TradingAnalyzer:
         self.logger.info(f"  Slow EMA ({SLOW_MA_WINDOW}): {slow_ma:.2f}")
         self.logger.info(f"  MACD: {macd_value:.2f}")
         self.logger.info(
-            f"{Fore.CYAN}  Overall Trend: {trend_strength.capitalize()} {trend_direction.capitalize()}{Style.RESET_ALL}")
+            f"{Fore.CYAN}  Overall Trend: {trend_strength.capitalize()} {trend_direction.capitalize()}{Style.RESET_ALL}"
+        )
 
         return f"{trend_strength} {trend_direction}"
-

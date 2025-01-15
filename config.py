@@ -1,6 +1,7 @@
 import os
 import json
 
+
 class Config:
     def __init__(self, config_file="config.py"):
         self.config = self._load_config(config_file)
@@ -22,11 +23,14 @@ class Config:
 
     def _load_config(self, config_file):
         try:
-            with open(config_file, 'r') as f:
+            with open(config_file, "r") as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"Warning: Configuration file '{config_file}' not found. Using default values or environment variables.")
-            return {} # Return empty dict, attributes will use defaults or None
+            print(
+                f"Warning: Configuration file '{config_file}' not found. Using default values or environment variables."
+            )
+            return {}  # Return empty dict, attributes will use defaults or None
+
 
 # Example config.json:
 # {

@@ -14,7 +14,9 @@ import hashlib
 init(autoreset=True)
 
 # Setup Logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,7 +27,9 @@ TESTNET_URL = "https://api-testnet.bybit.com"
 USE_TESTNET = False
 
 if not API_KEY or not API_SECRET:
-    logging.error(f"{Fore.RED}API keys not set. Please ensure BYBIT_API_KEY and BYBIT_API_SECRET are defined in a .env file.{Style.RESET_ALL}")
+    logging.error(
+        f"{Fore.RED}API keys not set. Please ensure BYBIT_API_KEY and BYBIT_API_SECRET are defined in a .env file.{Style.RESET_ALL}"
+    )
     exit(1)
 
 
@@ -41,7 +45,9 @@ def bybit_request(method: str, endpoint: str, params: dict = None) -> dict:
     params = params or {}
     param_str = "&".join(f"{key}={value}" for key, value in sorted(params.items()))
     signature_payload = f"{timestamp}{API_KEY}{param_str}".encode()
-    signature = hmac.new(API_SECRET.encode(), signature_payload, hashlib.sha256).hexdigest()
+    signature = hmac.new(
+        API_SECRET.encode(), signature_payload, hashlib.sha256
+    ).hexdigest()
 
     headers = {
         "X-BAPI-API-KEY": API_KEY,
@@ -67,9 +73,20 @@ def fetch_klines(symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
     params = {"symbol": symbol, "interval": interval, "limit": limit}
     response = bybit_request("GET", endpoint, params)
     if response.get("retCode") == 0 and response.get("result"):
-        df = pd.DataFrame(response["result"]["list"], columns=["start_time", "open", "high", "low", "close", "volume"])
+        df = pd.DataFrame(
+            response["result"]["list"],
+            columns=["start_time", "open", "high", "low", "close", "volume"],
+        )
         df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
-        df = df.astype({"open": float, "high": float, "low": float, "close": float, "volume": float})
+        df = df.astype(
+            {
+                "open": float,
+                "high": float,
+                "low": float,
+                "close": float,
+                "volume": float,
+            }
+        )
         return df
     else:
         logging.error(f"Failed to fetch klines for {symbol}. Response: {response}")
@@ -100,7 +117,13 @@ class TradingAnalyzer:
     - Merge sort for price analysis
     """
 
-    def __init__(self, close_prices: pd.Series, high_price: float, low_price: float, orderbook_data: Dict):
+    def __init__(
+        self,
+        close_prices: pd.Series,
+        high_price: float,
+        low_price: float,
+        orderbook_data: Dict,
+    ):
         if not isinstance(close_prices, pd.Series):
             raise ValueError("close_prices must be a pandas Series.")
         if not isinstance(high_price, (int, float)):
@@ -155,7 +178,9 @@ class TradingAnalyzer:
 
 # --- Main Execution ---
 def main():
-    symbol = input(f"{Fore.CYAN}Enter trading symbol (e.g., BTCUSDT): {Style.RESET_ALL}").upper()
+    symbol = input(
+        f"{Fore.CYAN}Enter trading symbol (e.g., BTCUSDT): {Style.RESET_ALL}"
+    ).upper()
     interval = input(f"{Fore.CYAN}Enter timeframe (e.g., 1h, 15m): {Style.RESET_ALL}")
 
     df = fetch_klines(symbol, interval)

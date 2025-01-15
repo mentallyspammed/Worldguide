@@ -16,6 +16,7 @@ from pybit.exceptions import InvalidRequestError
 # Initialize colorama for neon-colored outputs
 init(autoreset=True)
 
+
 # --- Configuration ---
 class Config:
     def __init__(self, symbol: str, interval: str):
@@ -41,16 +42,21 @@ class Config:
         self.timezone = pytz.timezone("America/Chicago")
 
         if not self.api_key or not self.api_secret:
-            raise ValueError("API keys not set. Ensure BYBIT_API_KEY and BYBIT_API_SECRET are in .env")
+            raise ValueError(
+                "API keys not set. Ensure BYBIT_API_KEY and BYBIT_API_SECRET are in .env"
+            )
 
         # Base URL for Unified Trading Account (UTA)
-        self.base_url = "https://api-testnet.bybit.com" if self.testnet else "https://api.bybit.com"  # For testnet
+        self.base_url = (
+            "https://api-testnet.bybit.com" if self.testnet else "https://api.bybit.com"
+        )  # For testnet
+
 
 # --- Logging Setup ---
 def setup_logger(name: str, level: str) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
     # File handler
     log_dir = "logs"
@@ -67,6 +73,7 @@ def setup_logger(name: str, level: str) -> logging.Logger:
 
     return logger
 
+
 # --- Bybit API Client ---
 class BybitAPI:
     def __init__(self, config: Config, logger: logging.Logger):
@@ -82,8 +89,7 @@ class BybitAPI:
         """Fetches the current real-time price of the symbol using pybit."""
         try:
             response = self.session.get_tickers(
-                category="linear",
-                symbol=self.config.symbol
+                category="linear", symbol=self.config.symbol
             )
 
             if response["retCode"] != 0:
@@ -103,7 +109,9 @@ class BybitAPI:
             self.logger.error(f"Error fetching current price: {e}")
             return None
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """
         Fetches kline data from Bybit API for Unified Trading Account (UTA)
         (specifically for USDT Perpetual contracts) using pybit, ensures it's sorted by time,
@@ -111,10 +119,7 @@ class BybitAPI:
         """
         try:
             response = self.session.get_kline(
-                category="linear",
-                symbol=symbol,
-                interval=interval,
-                limit=limit
+                category="linear", symbol=symbol, interval=interval, limit=limit
             )
 
             # Check for API error messages
@@ -129,7 +134,15 @@ class BybitAPI:
             # Adjust the columns based on the API response
             df = pd.DataFrame(
                 response["result"]["list"],
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"]
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
 
             # Convert start_time to datetime and set timezone to UTC
@@ -139,13 +152,19 @@ class BybitAPI:
             df.sort_values("start_time", inplace=True)
 
             # Convert other columns to numeric types
-            df = df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            df = df.astype(
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
+            )
 
             return df
 
         except Exception as e:
             self.logger.error(f"Error fetching klines: {e}")
             return pd.DataFrame()
+
 
 # --- Trading Analysis ---
 class TradingAnalyzer:
@@ -160,9 +179,15 @@ class TradingAnalyzer:
             return df
 
         # Moving Averages
-        df["EMA_Short"] = EMAIndicator(df["close"], window=self.config.ma_periods_short).ema_indicator()
-        df["EMA_Long"] = EMAIndicator(df["close"], window=self.config.ma_periods_long).ema_indicator()
-        df["FMA"] = EMAIndicator(df["close"], window=self.config.fma_period).ema_indicator()
+        df["EMA_Short"] = EMAIndicator(
+            df["close"], window=self.config.ma_periods_short
+        ).ema_indicator()
+        df["EMA_Long"] = EMAIndicator(
+            df["close"], window=self.config.ma_periods_long
+        ).ema_indicator()
+        df["FMA"] = EMAIndicator(
+            df["close"], window=self.config.fma_period
+        ).ema_indicator()
 
         # RSI
         df["RSI"] = rsi(df["close"], window=self.config.rsi_period)
@@ -210,7 +235,9 @@ class TradingAnalyzer:
             return "high"
         return "low"
 
-    def calculate_fibonacci_support_resistance(self, df: pd.DataFrame) -> Dict[str, List[float]]:
+    def calculate_fibonacci_support_resistance(
+        self, df: pd.DataFrame
+    ) -> Dict[str, List[float]]:
         """Calculates support and resistance levels using Fibonacci retracement."""
         if df.empty:
             return {"support": [], "resistance": []}
@@ -228,7 +255,9 @@ class TradingAnalyzer:
 
         current_price = df["close"].iloc[-1]
         nearest_support = max([s for s in supports if s < current_price], default=None)
-        nearest_resistance = min([r for r in resistances if r > current_price], default=None)
+        nearest_resistance = min(
+            [r for r in resistances if r > current_price], default=None
+        )
 
         return {
             "support": supports,
@@ -237,7 +266,9 @@ class TradingAnalyzer:
             "nearest_resistance": nearest_resistance,
         }
 
-    def generate_trade_signal(self, df: pd.DataFrame, current_price: float) -> Optional[Dict[str, float]]:
+    def generate_trade_signal(
+        self, df: pd.DataFrame, current_price: float
+    ) -> Optional[Dict[str, float]]:
         """
         Generates a trade signal based on RSI, moving averages, and Fibonacci levels.
         """
@@ -252,27 +283,35 @@ class TradingAnalyzer:
         rsi_value = df["RSI"].iloc[-1]
 
         # Long Signal
-        if trend == "bullish" and momentum == "oversold" and abs(current_price - nearest_support) / current_price < 0.01:
+        if (
+            trend == "bullish"
+            and momentum == "oversold"
+            and abs(current_price - nearest_support) / current_price < 0.01
+        ):
             return {
                 "signal": "long",
                 "entry_price": nearest_support,
                 "rsi": rsi_value,
                 "stop_loss": nearest_support * 0.99,  # Example: 1% below entry
-                "take_profit": nearest_resistance  # Example: Nearest resistance
+                "take_profit": nearest_resistance,  # Example: Nearest resistance
             }
 
         # Short Signal
-        if trend == "bearish" and momentum == "overbought" and abs(current_price - nearest_resistance) / current_price < 0.01:
+        if (
+            trend == "bearish"
+            and momentum == "overbought"
+            and abs(current_price - nearest_resistance) / current_price < 0.01
+        ):
             return {
                 "signal": "short",
                 "entry_price": nearest_resistance,
                 "rsi": rsi_value,
                 "stop_loss": nearest_resistance * 1.01,  # Example: 1% above entry
-                "take_profit": nearest_support  # Example: Nearest support
+                "take_profit": nearest_support,  # Example: Nearest support
             }
 
         return None
-    
+
 
 # --- Main Function ---
 def main():
@@ -286,7 +325,9 @@ def main():
         print(Fore.RED + "Invalid symbol. Example of valid symbols: BTCUSDT, ETHUSDT.")
         return
     if interval not in valid_intervals:
-        print(Fore.RED + f"Invalid timeframe. Choose from: {', '.join(valid_intervals)}.")
+        print(
+            Fore.RED + f"Invalid timeframe. Choose from: {', '.join(valid_intervals)}."
+        )
         return
 
     # Initialize configuration and logging
@@ -303,7 +344,9 @@ def main():
             time.sleep(30)
             continue
 
-        logger.info(f"{Fore.CYAN}Fetching kline data for {symbol} with a {interval}-minute timeframe.")
+        logger.info(
+            f"{Fore.CYAN}Fetching kline data for {symbol} with a {interval}-minute timeframe."
+        )
         df = analyzer.api.fetch_klines(config.symbol, config.interval)
 
         if df.empty:
@@ -314,7 +357,9 @@ def main():
             latest_kline = df.iloc[-1]
 
             # Convert the latest kline's start_time to the user's timezone
-            latest_kline_time_local = latest_kline["start_time"].tz_convert(config.timezone)
+            latest_kline_time_local = latest_kline["start_time"].tz_convert(
+                config.timezone
+            )
 
             # Calculate Indicators
             df = analyzer.calculate_indicators(df)
@@ -338,22 +383,32 @@ def main():
             print(Fore.CYAN + "\n--- Analysis Results ---")
             print(f"Symbol: {Fore.YELLOW}{symbol}")
             print(f"Timeframe: {Fore.YELLOW}{interval}")
-            print(f"Last Close Time ({config.timezone}): {Fore.YELLOW}{latest_kline_time_local.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(
+                f"Last Close Time ({config.timezone}): {Fore.YELLOW}{latest_kline_time_local.strftime('%Y-%m-%d %H:%M:%S')}"
+            )
             print(f"Current Price: {Fore.GREEN}{current_price}")
-            print(f"Trend: {Fore.GREEN if trend == 'bullish' else Fore.RED if trend == 'bearish' else Fore.YELLOW}{trend}")
-            print(f"Momentum: {Fore.RED if momentum == 'overbought' else Fore.GREEN if momentum == 'oversold' else Fore.YELLOW}{momentum}")
+            print(
+                f"Trend: {Fore.GREEN if trend == 'bullish' else Fore.RED if trend == 'bearish' else Fore.YELLOW}{trend}"
+            )
+            print(
+                f"Momentum: {Fore.RED if momentum == 'overbought' else Fore.GREEN if momentum == 'oversold' else Fore.YELLOW}{momentum}"
+            )
             print(f"Volume: {Fore.GREEN if volume == 'high' else Fore.RED}{volume}")
             if not df.empty:
                 print(f"RSI: {Fore.YELLOW}{df['RSI'].iloc[-1]:.2f}")
 
             if fib_levels:
                 print(Fore.CYAN + "\n--- Fibonacci Levels ---")
-                for i, level in enumerate(fib_levels['support']):
+                for i, level in enumerate(fib_levels["support"]):
                     print(f"S{i+1}: {Fore.GREEN}{level:.2f}")
-                for i, level in enumerate(fib_levels['resistance']):
+                for i, level in enumerate(fib_levels["resistance"]):
                     print(f"R{i+1}: {Fore.RED}{level:.2f}")
-                print(f"Nearest Support: {Fore.GREEN}{fib_levels['nearest_support']:.2f}")
-                print(f"Nearest Resistance: {Fore.RED}{fib_levels['nearest_resistance']:.2f}")
+                print(
+                    f"Nearest Support: {Fore.GREEN}{fib_levels['nearest_support']:.2f}"
+                )
+                print(
+                    f"Nearest Resistance: {Fore.RED}{fib_levels['nearest_resistance']:.2f}"
+                )
 
             if signal:
                 print(Fore.CYAN + "\n--- Trade Signal ---")
@@ -370,6 +425,7 @@ def main():
         # Wait for 30 seconds before next iteration
         logger.info(f"{Fore.CYAN}Waiting for 30 seconds before the next analysis...\n")
         time.sleep(30)
+
 
 if __name__ == "__main__":
     main()

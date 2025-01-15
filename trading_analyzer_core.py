@@ -52,8 +52,12 @@ class TradingAnalyzer:
 
     def determine_trend(self) -> str:
         """Determines the trend based on moving averages."""
-        short_ma = EMAIndicator(self.df["close"], self.config.ma_periods_short).ema_indicator()
-        long_ma = EMAIndicator(self.df["close"], self.config.ma_periods_long).ema_indicator()
+        short_ma = EMAIndicator(
+            self.df["close"], self.config.ma_periods_short
+        ).ema_indicator()
+        long_ma = EMAIndicator(
+            self.df["close"], self.config.ma_periods_long
+        ).ema_indicator()
         if short_ma.iloc[-1] > long_ma.iloc[-1]:
             return "Bullish"
         elif short_ma.iloc[-1] < long_ma.iloc[-1]:

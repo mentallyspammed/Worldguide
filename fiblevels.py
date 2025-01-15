@@ -2,7 +2,8 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
-def fibonacci_pivot_points(crypto_symbol, timeframe='1d'):
+
+def fibonacci_pivot_points(crypto_symbol, timeframe="1d"):
     """
     Calculates Fibonacci pivot points for a given cryptocurrency and timeframe.
 
@@ -22,12 +23,11 @@ def fibonacci_pivot_points(crypto_symbol, timeframe='1d'):
         if data.empty:
             print("Error: Could not retrieve data for the given symbol and timeframe.")
             return None
-        
-        # Extract relevant data
-        high = data['High'].iloc[-1]
-        low = data['Low'].iloc[-1]
-        close = data['Close'].iloc[-1]
 
+        # Extract relevant data
+        high = data["High"].iloc[-1]
+        low = data["Low"].iloc[-1]
+        close = data["Close"].iloc[-1]
 
         # Calculate Pivot Point (PP)
         pp = (high + low + close) / 3
@@ -37,20 +37,21 @@ def fibonacci_pivot_points(crypto_symbol, timeframe='1d'):
         resistance_levels = []
         support_levels = []
 
-
         for ratio in fib_ratios:
             resistance_levels.append(pp + (high - low) * ratio)
             support_levels.append(pp - (high - low) * ratio)
 
         # Store the results in a DataFrame
-        results = pd.DataFrame({
-            'Current Price': [close],
-            'Pivot Point': [pp],
-            'Resistance 1': resistance_levels[0],
-            'Resistance 2': resistance_levels[1],
-            'Support 1': support_levels[0],
-            'Support 2': support_levels[1],
-        })
+        results = pd.DataFrame(
+            {
+                "Current Price": [close],
+                "Pivot Point": [pp],
+                "Resistance 1": resistance_levels[0],
+                "Resistance 2": resistance_levels[1],
+                "Support 1": support_levels[0],
+                "Support 2": support_levels[1],
+            }
+        )
 
         return results
 

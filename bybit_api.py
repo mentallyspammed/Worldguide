@@ -24,9 +24,7 @@ class BybitAPI:
 
         # Initialize the HTTP session without the endpoint
         self.session = HTTP(
-            api_key=self.api_key,
-            api_secret=self.api_secret,
-            testnet=self.testnet
+            api_key=self.api_key, api_secret=self.api_secret, testnet=self.testnet
         )
 
     @retry(exceptions=(InvalidRequestError), tries=3, delay=2, backoff=2)
@@ -73,7 +71,9 @@ class BybitAPI:
             self.logger.error(f"Error fetching order book: {e}")
             return {}
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """
         Fetches kline data from Bybit API for Unified Trading Account (UTA)
         (specifically for USDT Perpetual contracts) using pybit, ensures it's sorted by time,
@@ -111,7 +111,9 @@ class BybitAPI:
             )
 
             # Convert start_time to datetime and set timezone to UTC
-            df["start_time"] = pd.to_datetime(pd.to_numeric(df["start_time"]), unit="ms", utc=True)
+            df["start_time"] = pd.to_datetime(
+                pd.to_numeric(df["start_time"]), unit="ms", utc=True
+            )
 
             # Sort by time to ensure the latest data is at the end
             df.sort_values("start_time", inplace=True)
