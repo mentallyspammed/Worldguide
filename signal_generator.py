@@ -41,6 +41,7 @@ RETRY_DELAY = 5
 SUPPORT_RESISTANCE_WINDOW = 14
 CLUSTER_SENSITIVITY = 0.05
 
+
 # --- API Utilities ---
 def generate_signature(params: dict) -> str:
     """Generate HMAC SHA256 signature."""
@@ -63,10 +64,18 @@ def fetch_data(symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
             response.raise_for_status()
             data = response.json()
             if data.get("retCode") == 0:
-                df = pd.DataFrame(data["result"]["list"], columns=["start_time", "open", "high", "low", "close", "volume"])
+                df = pd.DataFrame(
+                    data["result"]["list"],
+                    columns=["start_time", "open", "high", "low", "close", "volume"],
+                )
                 df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
                 df = df.set_index("start_time").sort_index()
-                df = df.astype({col: "float64" for col in ["open", "high", "low", "close", "volume"]})
+                df = df.astype(
+                    {
+                        col: "float64"
+                        for col in ["open", "high", "low", "close", "volume"]
+                    }
+                )
                 return df
         except requests.RequestException as e:
             logger.error(f"Error fetching data: {e}")
@@ -88,11 +97,14 @@ def fetch_current_price(symbol: str) -> float:
         logger.error(f"Error fetching current price: {e}")
     return None
 
+
 # --- Indicator Calculations ---
 def calculate_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """Add technical indicators to the DataFrame."""
     df["RSI"] = RSIIndicator(df["close"]).rsi()
-    df["ATR"] = AverageTrueRange(df["high"], df["low"], df["close"]).average_true_range()
+    df["ATR"] = AverageTrueRange(
+        df["high"], df["low"], df["close"]
+    ).average_true_range()
     df["SMA_Fast"] = SMAIndicator(df["close"], window=5).sma_indicator()
     df["SMA_Slow"] = SMAIndicator(df["close"], window=20).sma_indicator()
     return df
@@ -121,8 +133,11 @@ def calculate_pivot_points(high: float, low: float, close: float) -> Dict[str, f
         "Support 2": pivot - (high - low),
     }
 
+
 # --- Signal Generation ---
-def generate_signals(df: pd.DataFrame, levels: Dict[str, float]) -> List[Tuple[str, str, float, float, float]]:
+def generate_signals(
+    df: pd.DataFrame, levels: Dict[str, float]
+) -> List[Tuple[str, str, float, float, float]]:
     """Generate trading signals."""
     signals = []
     close_price = df["close"].iloc[-1]
@@ -138,8 +153,11 @@ def generate_signals(df: pd.DataFrame, levels: Dict[str, float]) -> List[Tuple[s
             signals.append(("Short", level_name, level, tp, sl))
     return signals
 
+
 # --- Display ---
-def display_output(levels: Dict[str, float], signals: List[Tuple[str, str, float, float, float]]):
+def display_output(
+    levels: Dict[str, float], signals: List[Tuple[str, str, float, float, float]]
+):
     """Display levels and signals in neon colors."""
     print(Fore.CYAN + "\nSupport and Resistance Levels:")
     for level_name, level in levels.items():
@@ -148,12 +166,17 @@ def display_output(levels: Dict[str, float], signals: List[Tuple[str, str, float
     print(Fore.YELLOW + "\nGenerated Signals:")
     for signal_type, level_name, level, tp, sl in signals:
         color = Fore.GREEN if signal_type == "Long" else Fore.RED
-        print(f"{color}{signal_type} at {level_name} ({level:.2f}) | TP: {tp:.2f} | SL: {sl:.2f}")
+        print(
+            f"{color}{signal_type} at {level_name} ({level:.2f}) | TP: {tp:.2f} | SL: {sl:.2f}"
+        )
+
 
 # --- Main ---
 def main():
     symbol = input(Fore.CYAN + "Enter trading symbol (e.g., BTCUSDT): ").strip().upper()
-    interval = input(Fore.CYAN + f"Enter interval ({', '.join(VALID_INTERVALS)}): ").strip()
+    interval = input(
+        Fore.CYAN + f"Enter interval ({', '.join(VALID_INTERVALS)}): "
+    ).strip()
     if interval not in VALID_INTERVALS:
         logger.error(Fore.RED + "Invalid interval.")
         return

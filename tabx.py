@@ -19,8 +19,21 @@ LOG_DIR = "botlogs"  # Directory to store log files
 ST_LOUIS_TZ = ZoneInfo("America/Chicago")  # Time zone for timestamps
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", 3))  # Maximum API request retries
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", 5))  # Delay between retries (seconds)
-VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W", "M"]  # Valid chart intervals
+VALID_INTERVALS = [
+    "1",
+    "3",
+    "5",
+    "15",
+    "30",
+    "60",
+    "120",
+    "240",
+    "D",
+    "W",
+    "M",
+]  # Valid chart intervals
 RETRY_ERROR_CODES = [429, 500, 502, 503, 504]  # HTTP error codes that trigger retries
+
 
 # --- Configuration ---
 class Config:
@@ -36,6 +49,7 @@ class Config:
             raise ValueError(
                 "API keys not set. Please set BYBIT_API_KEY and BYBIT_API_SECRET in your .env file."
             )
+
 
 # --- Bybit API Client ---
 class Bybit:
@@ -60,7 +74,9 @@ class Bybit:
             try:
                 params = params or {}
                 params["api_key"] = self.config.api_key
-                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["timestamp"] = str(
+                    int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000)
+                )
                 params["sign"] = self._generate_signature(params)
 
                 url = f"{self.config.base_url}{endpoint}"
@@ -110,21 +126,39 @@ class Bybit:
 
         return {"retCode": -1, "retMsg": "Max retries exceeded"}
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """Fetches klines (candlestick data) for a given symbol and interval."""
         endpoint = "/v5/market/kline"
-        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+            "category": "linear",
+        }
         response = self._request("GET", endpoint, params)
 
         if response.get("retCode") == 0 and response.get("result"):
             klines = response["result"]["list"]
             df = pd.DataFrame(
                 klines,
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
             df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
             df = df.astype(
-                {col: float for col in ["open", "high", "low", "close", "volume", "turnover"]}
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
             )
             return df
         else:
@@ -155,6 +189,7 @@ class Bybit:
                 f"{response.get('retMsg', 'Unknown error')}"
             )
             return None
+
 
 # --- Technical Analysis Module ---
 class TechnicalAnalyzer:
@@ -198,13 +233,17 @@ class TechnicalAnalyzer:
 
         for label, value in fib_levels.items():
             level_label = (
-                f"Support ({label})" if value <= current_price else f"Resistance ({label})"
+                f"Support ({label})"
+                if value <= current_price
+                else f"Resistance ({label})"
             )
             self.levels[level_label] = value
 
         return fib_levels
 
-    def calculate_pivot_points(self, high: float, low: float, close: float) -> Dict[str, float]:
+    def calculate_pivot_points(
+        self, high: float, low: float, close: float
+    ) -> Dict[str, float]:
         """Calculates pivot points."""
         pivot = (high + low + close) / 3
         r1 = 2 * pivot - low
@@ -232,10 +271,14 @@ class TechnicalAnalyzer:
     ) -> Tuple[List[Tuple[str, float]], List[Tuple[str, float]]]:
         """Finds nearest support and resistance levels."""
         supports = [
-            (label, value) for label, value in self.levels.items() if value < current_price
+            (label, value)
+            for label, value in self.levels.items()
+            if value < current_price
         ]
         resistances = [
-            (label, value) for label, value in self.levels.items() if value > current_price
+            (label, value)
+            for label, value in self.levels.items()
+            if value > current_price
         ]
         nearest_supports = sorted(supports, key=lambda x: x[1], reverse=True)[:3]
         nearest_resistances = sorted(resistances, key=lambda x: x[1])[:3]
@@ -325,7 +368,9 @@ class TechnicalAnalyzer:
         if closest_support is None:
             return "upward"
 
-        if abs(closest_resistance[1] - current_price) < abs(closest_support[1] - current_price):
+        if abs(closest_resistance[1] - current_price) < abs(
+            closest_support[1] - current_price
+        ):
             return "upward"
         else:
             return "downward"
@@ -380,7 +425,10 @@ class TechnicalAnalyzer:
         for level, value in nearest_resistances:
             self.logger.info(f"{Fore.RED} {level}: {Fore.BLUE} {value:.2f}")
 
-        self.logger.info(f"{Fore.YELLOW}Prediction:{Fore.MAGENTA} {next_level_prediction}")
+        self.logger.info(
+            f"{Fore.YELLOW}Prediction:{Fore.MAGENTA} {next_level_prediction}"
+        )
+
 
 # --- Logging Setup ---
 def setup_logger(name: str) -> logging.Logger:
@@ -393,16 +441,21 @@ def setup_logger(name: str) -> logging.Logger:
 
     os.makedirs(LOG_DIR, exist_ok=True)
     file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(file_handler)
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(
-        logging.Formatter(f"{Fore.BLUE}%(asctime)s{Fore.RESET} - %(levelname)s - %(message)s")
+        logging.Formatter(
+            f"{Fore.BLUE}%(asctime)s{Fore.RESET} - %(levelname)s - %(message)s"
+        )
     )
     logger.addHandler(stream_handler)
 
     return logger
+
 
 # --- Main Function ---
 def main():
@@ -439,6 +492,7 @@ def main():
 
     except Exception as e:
         logger.exception(f"{Fore.RED}An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()

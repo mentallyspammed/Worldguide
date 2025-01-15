@@ -25,6 +25,7 @@ SUPPORT_RESISTANCE_WINDOW = 14
 CLUSTER_SENSITIVITY = 0.05
 HIGHER_TIMEFRAMES = ["60", "240", "D"]
 
+
 # --- Configuration ---
 class Config:
     def __init__(self):
@@ -37,6 +38,7 @@ class Config:
             raise ValueError(
                 "API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env"
             )
+
 
 # --- Bybit API Client ---
 class Bybit:
@@ -57,7 +59,9 @@ class Bybit:
             try:
                 params = params or {}
                 params["api_key"] = self.config.api_key
-                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["timestamp"] = str(
+                    int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000)
+                )
                 params["sign"] = self._generate_signature(params)
 
                 url = f"{self.config.base_url}{endpoint}"
@@ -82,9 +86,7 @@ class Bybit:
                     return {"retCode": -1, "retMsg": "Invalid JSON"}
 
                 if json_response.get("retCode") != 0:
-                    self.logger.error(
-                        f"Bybit API returned non-zero: {json_response}"
-                    )
+                    self.logger.error(f"Bybit API returned non-zero: {json_response}")
                     return json_response
 
                 return json_response
@@ -99,20 +101,38 @@ class Bybit:
 
         return {"retCode": -1, "retMsg": "Max retries exceeded"}
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         endpoint = "/v5/market/kline"
-        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+            "category": "linear",
+        }
         response = self._request("GET", endpoint, params)
 
         if response.get("retCode") == 0 and response.get("result"):
             klines = response["result"]["list"]
             df = pd.DataFrame(
                 klines,
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
             df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
             df = df.astype(
-                {col: float for col in ["open", "high", "low", "close", "volume", "turnover"]}
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
             )
             return df
         else:
@@ -141,6 +161,7 @@ class Bybit:
             )
             return None
 
+
 # --- Technical Analysis Module (Enhanced) ---
 class TradingAnalyzer:
     def __init__(
@@ -156,23 +177,25 @@ class TradingAnalyzer:
         self.bybit = Bybit(self.config, logger)
         self.df = self.bybit.fetch_klines(symbol, interval, limit=200)
         self.levels = {}
-        self.pivot_points = {} # To store pivot point levels
+        self.pivot_points = {}  # To store pivot point levels
 
     def calculate_sma(self, window: int) -> pd.Series:
         return SMAIndicator(self.df["close"], window=window).sma_indicator()
-    
+
     def calculate_ema(self, window: int) -> pd.Series:
         return EMAIndicator(self.df["close"], window=window).ema_indicator()
 
     def calculate_momentum(self, window: int = 14) -> pd.Series:
         return self.df["close"].diff(window)
-    
+
     def calculate_fibonacci_retracement(
         self, high: float, low: float
     ) -> Dict[str, float]:
         diff = high - low
         if diff == 0:
-            self.logger.warning("Cannot calculate Fibonacci: high and low are the same.")
+            self.logger.warning(
+                "Cannot calculate Fibonacci: high and low are the same."
+            )
             return {}
 
         fib_levels = {
@@ -186,8 +209,10 @@ class TradingAnalyzer:
             "Fib 0.0%": low,
         }
         return fib_levels
-    
-    def calculate_pivot_points(self, high: float, low: float, close: float) -> Dict[str, float]:
+
+    def calculate_pivot_points(
+        self, high: float, low: float, close: float
+    ) -> Dict[str, float]:
         """Calculates pivot points."""
         pivot = (high + low + close) / 3
         r1 = 2 * pivot - low
@@ -209,7 +234,7 @@ class TradingAnalyzer:
 
         self.pivot_points.update(pivot_levels)
         return pivot_levels
-    
+
     def calculate_atr(self, window: int = 14) -> pd.Series:
         return AverageTrueRange(
             self.df["high"], self.df["low"], self.df["close"], window=window
@@ -231,9 +256,11 @@ class TradingAnalyzer:
                 "Histogram": macd_indicator.macd_diff(),
             }
         )
-    
+
     def identify_support_resistance(
-        self, window: int = SUPPORT_RESISTANCE_WINDOW, sensitivity: float = CLUSTER_SENSITIVITY
+        self,
+        window: int = SUPPORT_RESISTANCE_WINDOW,
+        sensitivity: float = CLUSTER_SENSITIVITY,
     ) -> Dict[str, Tuple[float, float]]:
         data = self.df["close"].values
         volumes = self.df["volume"].values
@@ -277,7 +304,9 @@ class TradingAnalyzer:
                 for i, center in enumerate(cluster_centers):
                     if abs(point - center) / center <= sensitivity:
                         # Update the cluster center as a weighted average
-                        cluster_centers[i] = (cluster_centers[i] * len(cluster_volumes) + point) / (len(cluster_volumes) + 1)
+                        cluster_centers[i] = (
+                            cluster_centers[i] * len(cluster_volumes) + point
+                        ) / (len(cluster_volumes) + 1)
                         # Update volume
                         cluster_volumes[i] += volumes[list(all_points).index(point)]
                         added_to_cluster = True
@@ -293,7 +322,10 @@ class TradingAnalyzer:
             price_diff_ratio = abs(current_price - center) / current_price
             if price_diff_ratio <= sensitivity:
                 level_type = "Support" if center < current_price else "Resistance"
-                levels[f"{level_type} (Cluster)"] = (center, volume / len(cluster_volumes))  # Average volume
+                levels[f"{level_type} (Cluster)"] = (
+                    center,
+                    volume / len(cluster_volumes),
+                )  # Average volume
 
         self.levels.update(levels)
         return levels
@@ -328,8 +360,10 @@ class TradingAnalyzer:
             return "downward"
         else:
             return "neutral"
-        
-    def analyze_higher_timeframes(self, higher_timeframes: List[str]) -> Dict[str, Dict[str, float]]:
+
+    def analyze_higher_timeframes(
+        self, higher_timeframes: List[str]
+    ) -> Dict[str, Dict[str, float]]:
         """Analyzes support/resistance on higher timeframes."""
         higher_tf_levels = {}
         for tf in higher_timeframes:
@@ -343,7 +377,13 @@ class TradingAnalyzer:
 
         return higher_tf_levels
 
-    def suggest_trades(self, current_price: float, trend: str, nearest_supports: List[Tuple[str, float, float]], nearest_resistances: List[Tuple[str, float, float]]) -> Dict[str, Dict[str, float]]:
+    def suggest_trades(
+        self,
+        current_price: float,
+        trend: str,
+        nearest_supports: List[Tuple[str, float, float]],
+        nearest_resistances: List[Tuple[str, float, float]],
+    ) -> Dict[str, Dict[str, float]]:
         """Suggests entry and target prices for long and short trades based on trend and S/R levels."""
         suggestions = {"long": {}, "short": {}}
 
@@ -353,7 +393,9 @@ class TradingAnalyzer:
             target_resistance = nearest_resistances[0] if nearest_resistances else None
 
             suggestions["long"]["entry"] = entry_support[1]
-            suggestions["long"]["target"] = target_resistance[1] if target_resistance else current_price * 1.05  # Default 5% above current price
+            suggestions["long"]["target"] = (
+                target_resistance[1] if target_resistance else current_price * 1.05
+            )  # Default 5% above current price
 
         elif trend == "downward" and nearest_resistances:
             # Short entry near closest resistance with target at closest support
@@ -361,10 +403,12 @@ class TradingAnalyzer:
             target_support = nearest_supports[0] if nearest_supports else None
 
             suggestions["short"]["entry"] = entry_resistance[1]
-            suggestions["short"]["target"] = target_support[1] if target_support else current_price * 0.95  # Default 5% below current price
+            suggestions["short"]["target"] = (
+                target_support[1] if target_support else current_price * 0.95
+            )  # Default 5% below current price
 
         return suggestions
-    
+
     def analyze(self, current_price: float):
         """Analyzes the market data and provides insights."""
         if self.df.empty:
@@ -386,7 +430,7 @@ class TradingAnalyzer:
         # Calculate support/resistance levels
         fib_levels = self.calculate_fibonacci_retracement(high, low)
         self.calculate_pivot_points(high, low, close)
-        self.identify_support_resistance() # Dynamic S/R
+        self.identify_support_resistance()  # Dynamic S/R
         nearest_supports, nearest_resistances = self.find_nearest_levels(current_price)
 
         # Analyze higher timeframes
@@ -394,40 +438,58 @@ class TradingAnalyzer:
 
         # Determine trend and momentum
         trend = self.determine_trend_momentum()
-        
+
         # Suggest trades
-        trade_suggestions = self.suggest_trades(current_price, trend, nearest_supports, nearest_resistances)
+        trade_suggestions = self.suggest_trades(
+            current_price, trend, nearest_supports, nearest_resistances
+        )
 
         # Log the analysis results
-        self.logger.info(f"{Fore.YELLOW}Current Price ({self.interval}):{Fore.GREEN} {current_price:.2f}")
+        self.logger.info(
+            f"{Fore.YELLOW}Current Price ({self.interval}):{Fore.GREEN} {current_price:.2f}"
+        )
         self.logger.info(f"{Fore.YELLOW}Trend:{Fore.CYAN} {trend}")
 
         # Log ATR
         if self.df["atr"] is not None:
-            self.logger.info(f"{Fore.YELLOW}ATR:{Fore.MAGENTA} {self.df['atr'].iloc[-1]:.2f}")
+            self.logger.info(
+                f"{Fore.YELLOW}ATR:{Fore.MAGENTA} {self.df['atr'].iloc[-1]:.2f}"
+            )
         else:
             self.logger.info(f"{Fore.YELLOW}ATR:{Fore.MAGENTA} None")
-        
+
         # Logging calculated levels for the current timeframe
         self.logger.info(f"{Fore.YELLOW}Support/Resistance Levels ({self.interval}):")
         for level, (value, volume) in self.levels.items():
-            if isinstance(value, (float, np.float64)):  # Check if 'value' is a float or numpy.float64
+            if isinstance(
+                value, (float, np.float64)
+            ):  # Check if 'value' is a float or numpy.float64
                 label_color = Fore.BLUE if "Support" in level else Fore.RED
-                self.logger.info(f"{label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}")
+                self.logger.info(
+                    f"{label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}"
+                )
             else:
                 self.logger.warning(f"Skipping invalid level value: {value}")
 
         # Log pivot point levels
         self.logger.info(f"{Fore.YELLOW}Pivot Point Levels ({self.interval}):")
         for level, value in self.pivot_points.items():
-            label_color = Fore.GREEN if level == "Pivot" else (Fore.BLUE if level.startswith("S") else Fore.RED)
-            self.logger.info(f"{label_color} {level}: {Fore.CYAN} {value:.2f}{Style.RESET_ALL}")
+            label_color = (
+                Fore.GREEN
+                if level == "Pivot"
+                else (Fore.BLUE if level.startswith("S") else Fore.RED)
+            )
+            self.logger.info(
+                f"{label_color} {level}: {Fore.CYAN} {value:.2f}{Style.RESET_ALL}"
+            )
 
         # Log Fibonacci levels
         self.logger.info(f"{Fore.YELLOW}Fibonacci Levels ({self.interval}):")
         for level, value in fib_levels.items():
-            self.logger.info(f"{Fore.CYAN} {level}: {Fore.GREEN} {value:.2f}{Style.RESET_ALL}")
-        
+            self.logger.info(
+                f"{Fore.CYAN} {level}: {Fore.GREEN} {value:.2f}{Style.RESET_ALL}"
+            )
+
         # Log higher timeframe levels
         self.logger.info(f"{Fore.YELLOW}Higher Timeframe Levels:")
         for tf, levels in higher_tf_levels.items():
@@ -435,31 +497,46 @@ class TradingAnalyzer:
             for level, (value, volume) in levels.items():
                 if isinstance(value, (float, np.float64)):
                     label_color = Fore.BLUE if "Support" in level else Fore.RED
-                    self.logger.info(f"    {label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}")
+                    self.logger.info(
+                        f"    {label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}"
+                    )
                 else:
                     self.logger.warning(f"Skipping invalid level value: {value}")
 
         self.logger.info(f"{Fore.YELLOW}Nearest Support Levels:")
         for level, value, volume in nearest_supports:
-            self.logger.info(f"{Fore.BLUE} {level}: {Fore.GREEN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})")
+            self.logger.info(
+                f"{Fore.BLUE} {level}: {Fore.GREEN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})"
+            )
 
         self.logger.info(f"{Fore.YELLOW}Nearest Resistance Levels:")
         for level, value, volume in nearest_resistances:
-            self.logger.info(f"{Fore.RED} {level}: {Fore.BLUE} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})")
-        
+            self.logger.info(
+                f"{Fore.RED} {level}: {Fore.BLUE} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})"
+            )
+
         # Log trade suggestions
         self.logger.info(f"{Fore.YELLOW}Trade Suggestions:")
         if trade_suggestions["long"]:
-            self.logger.info(f"{Fore.GREEN}  Long Entry:{Fore.CYAN} {trade_suggestions['long']['entry']:.2f}")
-            self.logger.info(f"{Fore.GREEN}  Long Target:{Fore.CYAN} {trade_suggestions['long']['target']:.2f}")
+            self.logger.info(
+                f"{Fore.GREEN}  Long Entry:{Fore.CYAN} {trade_suggestions['long']['entry']:.2f}"
+            )
+            self.logger.info(
+                f"{Fore.GREEN}  Long Target:{Fore.CYAN} {trade_suggestions['long']['target']:.2f}"
+            )
         else:
             self.logger.info(f"{Fore.GREEN}  No long entry suggested.")
 
         if trade_suggestions["short"]:
-            self.logger.info(f"{Fore.RED}  Short Entry:{Fore.CYAN} {trade_suggestions['short']['entry']:.2f}")
-            self.logger.info(f"{Fore.RED}  Short Target:{Fore.CYAN} {trade_suggestions['short']['target']:.2f}")
+            self.logger.info(
+                f"{Fore.RED}  Short Entry:{Fore.CYAN} {trade_suggestions['short']['entry']:.2f}"
+            )
+            self.logger.info(
+                f"{Fore.RED}  Short Target:{Fore.CYAN} {trade_suggestions['short']['target']:.2f}"
+            )
         else:
             self.logger.info(f"{Fore.RED}  No short entry suggested.")
+
 
 # --- Logging Setup ---
 def setup_logger(name: str) -> logging.Logger:
@@ -486,6 +563,7 @@ def setup_logger(name: str) -> logging.Logger:
 
     return logger
 
+
 # --- Main Function ---
 def main():
     init(autoreset=True)
@@ -493,9 +571,7 @@ def main():
 
     try:
         symbol = input(f"{Fore.CYAN}Enter trading symbol (e.g., BTCUSDT): ").upper()
-        interval = input(
-            f"{Fore.CYAN}Enter timeframe ({', '.join(VALID_INTERVALS)}): "
-        )
+        interval = input(f"{Fore.CYAN}Enter timeframe ({', '.join(VALID_INTERVALS)}): ")
 
         if interval not in VALID_INTERVALS:
             logger.error(f"{Fore.RED}Invalid interval: {interval}")
@@ -525,6 +601,7 @@ def main():
         logger.info(f"{Fore.YELLOW}Exiting script.")
     except Exception as e:
         logger.exception(f"{Fore.RED}An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()

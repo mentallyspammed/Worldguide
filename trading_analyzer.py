@@ -21,14 +21,17 @@ init(autoreset=True)
 
 # --- Configuration ---
 
+
 class TradingAnalyzer:
     def __init__(self, config, logger):
         self.config = config
         self.logger = logger
 
     def analyze(self, current_price):
-         self.logger.info("Analysis function was called")
-         return {} # just returning a dummy result
+        self.logger.info("Analysis function was called")
+        return {}  # just returning a dummy result
+
+
 class Config:
     def __init__(self, symbol: str, interval: str):
         load_dotenv()
@@ -54,21 +57,19 @@ class Config:
 
         if not self.api_key or not self.api_secret:
             raise ValueError(
-                "API keys not set. Ensure BYBIT_API_KEY and BYBIT_API_SECRET are in .env")
+                "API keys not set. Ensure BYBIT_API_KEY and BYBIT_API_SECRET are in .env"
+            )
 
         # Base URL for Unified Trading Account (UTA)
         self.base_url = (
-            "https://api-testnet.bybit.com"
-            if self.testnet
-            else "https://api.bybit.com"
+            "https://api-testnet.bybit.com" if self.testnet else "https://api.bybit.com"
         )  # For testnet
 
         # --- Constants ---
         self.LOG_DIR = "logs"
         self.MAX_RETRIES = int(os.getenv("MAX_RETRIES", 3))
         self.RETRY_DELAY = int(os.getenv("RETRY_DELAY", 5))
-        self.VALID_INTERVALS = ["1", "3", "5", "15",
-                                "30", "60", "120", "240", "D", "W"]
+        self.VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W"]
         self.RETRY_ERROR_CODES = [429, 500, 502, 503, 504]
         self.SUPPORT_RESISTANCE_WINDOW = 20
         self.CLUSTER_SENSITIVITY = 0.05
@@ -96,6 +97,7 @@ def setup_logger(name: str, level: str, symbol: str) -> logging.Logger:
     logger.addHandler(ch)
 
     return logger
+
 
 # --- Bybit API Client ---
 
@@ -135,7 +137,9 @@ class BybitAPI:
             self.logger.error(f"Error fetching current price: {e}")
             return None
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """
         Fetches kline data from Bybit API for Unified Trading Account (UTA)
         (specifically for USDT Perpetual contracts) using pybit, ensures it's sorted by time,
@@ -155,8 +159,7 @@ class BybitAPI:
                 return pd.DataFrame()
 
             if "result" not in response or "list" not in response["result"]:
-                self.logger.warning(
-                    f"No kline data found for symbol {symbol}.")
+                self.logger.warning(f"No kline data found for symbol {symbol}.")
                 return pd.DataFrame()
 
             # Adjust the columns based on the API response
@@ -174,8 +177,7 @@ class BybitAPI:
             )
 
             # Convert start_time to datetime and set timezone to UTC
-            df["start_time"] = pd.to_datetime(
-                df["start_time"], unit="ms", utc=True)
+            df["start_time"] = pd.to_datetime(df["start_time"], unit="ms", utc=True)
 
             # Sort by time to ensure the latest data is at the end
             df.sort_values("start_time", inplace=True)
@@ -213,6 +215,7 @@ class BybitAPI:
             self.logger.error(f"Error fetching order book: {e}")
             return {}
 
+
 # --- Trading Analysis ---
 
 
@@ -222,15 +225,15 @@ class TradingAnalyzer:
         self.logger = logger
         self.api = BybitAPI(config, logger)
         self.levels = {}
-        self.df = self.api.fetch_klines(
-            config.symbol, config.interval, limit=200
-        )
+        self.df = self.api.fetch_klines(config.symbol, config.interval, limit=200)
 
 
 def wma(series: pd.Series, window: int) -> pd.Series:
     """Calculates the Weighted Moving Average (WMA)."""
     weights = np.arange(1, window + 1)
-    return series.rolling(window=window).apply(lambda prices: np.dot(prices, weights) / weights.sum(), raw=True)
+    return series.rolling(window=window).apply(
+        lambda prices: np.dot(prices, weights) / weights.sum(), raw=True
+    )
 
 
 def hma(series: pd.Series, window: int) -> pd.Series:
@@ -267,12 +270,8 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         self.df["FMA"] = EMAIndicator(
             self.df["close"], window=self.config.fma_period
         ).ema_indicator()
-        self.df["WMA"] = wma(
-            self.df["close"], window=self.config.ma_periods_short
-        )
-        self.df["HMA"] = hma(
-            self.df["close"], window=self.config.ma_periods_short
-        )
+        self.df["WMA"] = wma(self.df["close"], window=self.config.ma_periods_short)
+        self.df["HMA"] = hma(self.df["close"], window=self.config.ma_periods_short)
 
         # RSI
         self.df["RSI"] = rsi(self.df["close"], window=self.config.rsi_period)
@@ -337,7 +336,9 @@ def hma(series: pd.Series, window: int) -> pd.Series:
             macd = ma_short - ma_long
             signal = macd.ewm(span=9, adjust=False).mean()
             histogram = macd - signal
-            return pd.DataFrame({"macd": macd, "signal": signal, "histogram": histogram})
+            return pd.DataFrame(
+                {"macd": macd, "signal": signal, "histogram": histogram}
+            )
         except KeyError:
             self.logger.error("Missing the close column to calculate MACD.")
             return pd.DataFrame()
@@ -372,8 +373,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
             high_close = (self.df["high"] - self.df["close"].shift()).abs()
             low_close = (self.df["low"] - self.df["close"].shift()).abs()
 
-            tr = pd.concat([high_low, high_close, low_close],
-                           axis=1).max(axis=1)
+            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
             atr = tr.rolling(window=window).mean()
             return atr
         except KeyError as e:
@@ -454,12 +454,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
 
     def determine_trend(self, df: pd.DataFrame) -> str:
         """Determines the trend based on EMA and FMA crossovers."""
-        if (
-            df.empty
-            or "EMA_Short" not in df
-            or "EMA_Long" not in df
-            or "FMA" not in df
-        ):
+        if df.empty or "EMA_Short" not in df or "EMA_Long" not in df or "FMA" not in df:
             return "neutral"
 
         ema_short = df["EMA_Short"].iloc[-1]
@@ -515,9 +510,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         resistances.sort()
 
         current_price = df["close"].iloc[-1]
-        nearest_support = max(
-            [s for s in supports if s < current_price], default=None
-        )
+        nearest_support = max([s for s in supports if s < current_price], default=None)
         nearest_resistance = min(
             [r for r in resistances if r > current_price], default=None
         )
@@ -574,9 +567,13 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         elif macd_line < signal_line and histogram < 0:
             return "bearish"  # MACD below Signal and Histogram negative
         elif macd_line > signal_line and histogram < 0:
-            return "potential bearish reversal"  # MACD above Signal but Histogram negative
+            return (
+                "potential bearish reversal"  # MACD above Signal but Histogram negative
+            )
         elif macd_line < signal_line and histogram > 0:
-            return "potential bullish reversal"  # MACD below Signal but Histogram positive
+            return (
+                "potential bullish reversal"  # MACD below Signal but Histogram positive
+            )
         else:
             return "neutral"
 
@@ -584,10 +581,12 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         """Finds local extrema (peaks and valleys) in the data."""
         extrema = []
         for i in range(window, len(data) - window):
-            is_peak = data[i] > max(
-                data[i-window:i]) and data[i] > max(data[i+1:i+1+window])
-            is_valley = data[i] < min(
-                data[i-window:i]) and data[i] < min(data[i+1:i+1+window])
+            is_peak = data[i] > max(data[i - window : i]) and data[i] > max(
+                data[i + 1 : i + 1 + window]
+            )
+            is_valley = data[i] < min(data[i - window : i]) and data[i] < min(
+                data[i + 1 : i + 1 + window]
+            )
 
             if is_peak or is_valley:
                 extrema.append(data[i])
@@ -608,7 +607,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
 
         for i in range(1, len(data)):
             # Adjust sensitivity for larger numbers
-            if np.abs(data[i] - np.mean(cluster)) < sensitivity*data[i]:
+            if np.abs(data[i] - np.mean(cluster)) < sensitivity * data[i]:
                 cluster.append(data[i])
             else:
                 clusters.append(cluster)
@@ -644,8 +643,9 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         support = [level for level in levels if level < current_price]
         resistance = [level for level in levels if level > current_price]
 
-        self.levels.update({"support_clusters": support,
-                           "resistance_clusters": resistance})
+        self.levels.update(
+            {"support_clusters": support, "resistance_clusters": resistance}
+        )
         return {"support": support, "resistance": resistance}
 
     def find_nearest_levels(
@@ -657,25 +657,41 @@ def hma(series: pd.Series, window: int) -> pd.Series:
 
         # Check for cluster-based levels
         if "support_clusters" in self.levels:
-            supports.extend([("Support (Cluster)", level, 0)
-                            for level in self.levels["support_clusters"] if level < current_price])
+            supports.extend(
+                [
+                    ("Support (Cluster)", level, 0)
+                    for level in self.levels["support_clusters"]
+                    if level < current_price
+                ]
+            )
         if "resistance_clusters" in self.levels:
-            resistances.extend([("Resistance (Cluster)", level, 0)
-                               for level in self.levels["resistance_clusters"] if level > current_price])
+            resistances.extend(
+                [
+                    ("Resistance (Cluster)", level, 0)
+                    for level in self.levels["resistance_clusters"]
+                    if level > current_price
+                ]
+            )
 
         # Check for Fibonacci levels
-        if "nearest_support" in self.levels and self.levels["nearest_support"] is not None:
-            supports.append(
-                ("Support (Fibonacci)", self.levels["nearest_support"], 0))
-        if "nearest_resistance" in self.levels and self.levels["nearest_resistance"] is not None:
+        if (
+            "nearest_support" in self.levels
+            and self.levels["nearest_support"] is not None
+        ):
+            supports.append(("Support (Fibonacci)", self.levels["nearest_support"], 0))
+        if (
+            "nearest_resistance" in self.levels
+            and self.levels["nearest_resistance"] is not None
+        ):
             resistances.append(
-                ("Resistance (Fibonacci)", self.levels["nearest_resistance"], 0))
+                ("Resistance (Fibonacci)", self.levels["nearest_resistance"], 0)
+            )
 
         # Sort by distance
-        nearest_supports = sorted(
-            supports, key=lambda x: current_price - x[1])[:3]
-        nearest_resistances = sorted(
-            resistances, key=lambda x: x[1] - current_price)[:3]
+        nearest_supports = sorted(supports, key=lambda x: current_price - x[1])[:3]
+        nearest_resistances = sorted(resistances, key=lambda x: x[1] - current_price)[
+            :3
+        ]
 
         return nearest_supports, nearest_resistances
 
@@ -685,9 +701,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         """Analyzes support/resistance on higher timeframes."""
         higher_tf_levels = {}
         for tf in higher_timeframes:
-            df_higher = self.api.fetch_klines(
-                self.config.symbol, tf, limit=200
-            )
+            df_higher = self.api.fetch_klines(self.config.symbol, tf, limit=200)
             if not df_higher.empty:
                 analyzer_higher = TradingAnalyzer(self.config, self.logger)
                 analyzer_higher.df = df_higher
@@ -732,9 +746,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
             ):
                 return "downward"
             else:
-                return (
-                    "neutral"
-                )  # Strong trend but direction unclear based on other indicators
+                return "neutral"  # Strong trend but direction unclear based on other indicators
         else:
             return "neutral"  # Weak or no trend
 
@@ -751,15 +763,11 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         if trend == "upward" and nearest_supports:
             # Long entry near closest support with target at closest resistance
             entry_support = nearest_supports[0]
-            target_resistance = (
-                nearest_resistances[0] if nearest_resistances else None
-            )
+            target_resistance = nearest_resistances[0] if nearest_resistances else None
 
             suggestions["long"]["entry"] = entry_support[1]
             suggestions["long"]["target"] = (
-                target_resistance[1]
-                if target_resistance
-                else current_price * 1.05
+                target_resistance[1] if target_resistance else current_price * 1.05
             )  # Default 5% above current price
 
         elif trend == "downward" and nearest_resistances:
@@ -769,9 +777,7 @@ def hma(series: pd.Series, window: int) -> pd.Series:
 
             suggestions["short"]["entry"] = entry_resistance[1]
             suggestions["short"]["target"] = (
-                target_support[1]
-                if target_support
-                else current_price * 0.95
+                target_support[1] if target_support else current_price * 0.95
             )  # Default 5% below current price
 
         return suggestions
@@ -844,14 +850,10 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         self.identify_support_resistance()
 
         # Find nearest levels
-        nearest_supports, nearest_resistances = self.find_nearest_levels(
-            current_price
-        )
+        nearest_supports, nearest_resistances = self.find_nearest_levels(current_price)
 
         # Analyze higher timeframes
-        higher_tf_levels = self.analyze_higher_timeframes(
-            self.config.HIGHER_TIMEFRAMES
-        )
+        higher_tf_levels = self.analyze_higher_timeframes(self.config.HIGHER_TIMEFRAMES)
 
         # Trade suggestions
         trade_suggestions = self.suggest_trades(
@@ -862,17 +864,14 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         self.logger.info(
             f" {Fore.YELLOW}--- Analysis Results for {self.config.symbol} ({self.config.interval}) ---"
         )
-        self.logger.info(
-            f" {Fore.YELLOW}Symbol: {Fore.MAGENTA} {self.config.symbol}"
-        )
+        self.logger.info(f" {Fore.YELLOW}Symbol: {Fore.MAGENTA} {self.config.symbol}")
         self.logger.info(
             f" {Fore.YELLOW}Timeframe: {Fore.MAGENTA} {self.config.interval}"
         )
         self.logger.info(
             f" {Fore.YELLOW}Last Close Time ({self.config.timezone}): {Fore.MAGENTA} {self.df['start_time'].iloc[-1].tz_convert(self.config.timezone).strftime('%Y-%m-%d %H:%M:%S')}"
         )
-        self.logger.info(
-            f" {Fore.YELLOW}Current Price: {Fore.GREEN} {current_price}")
+        self.logger.info(f" {Fore.YELLOW}Current Price: {Fore.GREEN} {current_price}")
         self.logger.info(
             f" {Fore.YELLOW}Trend: {Fore.GREEN if trend == 'upward' else Fore.RED if trend == 'downward' else Fore.YELLOW} {trend}"
         )
@@ -885,14 +884,14 @@ def hma(series: pd.Series, window: int) -> pd.Series:
         self.logger.info(
             f" {Fore.YELLOW}RSI: {Fore.MAGENTA} {rsi_value:.2f} ({rsi_analysis})"
         )
-        self.logger.info(
-            f" {Fore.YELLOW}MACD Analysis: {Fore.MAGENTA} {macd_analysis}")
+        self.logger.info(f" {Fore.YELLOW}MACD Analysis: {Fore.MAGENTA} {macd_analysis}")
 
         self.logger.info(f" {Fore.YELLOW}--- Fibonacci Levels ---")
         for name, level in fib_levels.items():
             if isinstance(level, list):
                 self.logger.info(
-                    f" {Fore.CYAN}{name}: {Fore.WHITE}{', '.join(map(str, level))}")
+                    f" {Fore.CYAN}{name}: {Fore.WHITE}{', '.join(map(str, level))}"
+                )
             else:
                 self.logger.info(f" {Fore.CYAN}{name}: {Fore.WHITE}{level}")
 
@@ -901,20 +900,23 @@ def hma(series: pd.Series, window: int) -> pd.Series:
             if name in ["Pivot", "R1", "S1", "R2", "S2", "R3", "S3"]:
                 self.logger.info(f" {Fore.CYAN}{name}: {Fore.WHITE}{level}")
 
-        self.logger.info(
-            f" {Fore.YELLOW}--- Dynamic Support/Resistance Clusters ---")
+        self.logger.info(f" {Fore.YELLOW}--- Dynamic Support/Resistance Clusters ---")
         if "support_clusters" in self.levels:
             self.logger.info(
-                f" {Fore.CYAN}Support Clusters: {Fore.WHITE}{', '.join(map(str, self.levels['support_clusters']))}")
+                f" {Fore.CYAN}Support Clusters: {Fore.WHITE}{', '.join(map(str, self.levels['support_clusters']))}"
+            )
         if "resistance_clusters" in self.levels:
             self.logger.info(
-                f" {Fore.CYAN}Resistance Clusters: {Fore.WHITE}{', '.join(map(str, self.levels['resistance_clusters']))}")
+                f" {Fore.CYAN}Resistance Clusters: {Fore.WHITE}{', '.join(map(str, self.levels['resistance_clusters']))}"
+            )
 
         self.logger.info(f" {Fore.YELLOW}--- Nearest Support/Resistance ---")
         self.logger.info(
-            f" {Fore.CYAN}Nearest Supports: {Fore.WHITE}{', '.join([f'{label} at {value:.2f}' for label, value, vol in nearest_supports])}")
+            f" {Fore.CYAN}Nearest Supports: {Fore.WHITE}{', '.join([f'{label} at {value:.2f}' for label, value, vol in nearest_supports])}"
+        )
         self.logger.info(
-            f" {Fore.CYAN}Nearest Resistances: {Fore.WHITE}{', '.join([f'{label} at {value:.2f}' for label, value, vol in nearest_resistances])}")
+            f" {Fore.CYAN}Nearest Resistances: {Fore.WHITE}{', '.join([f'{label} at {value:.2f}' for label, value, vol in nearest_resistances])}"
+        )
 
         self.logger.info(f" {Fore.YELLOW}--- Higher Timeframe Analysis ---")
         for tf, levels in higher_tf_levels.items():
@@ -922,28 +924,38 @@ def hma(series: pd.Series, window: int) -> pd.Series:
             for level_type, level_values in levels.items():
                 if level_type in ["support_clusters", "resistance_clusters"]:
                     self.logger.info(
-                        f"  {Fore.CYAN}{level_type}: {Fore.WHITE}{', '.join(map(str, level_values))}")
-                elif level_type in ["nearest_support", "nearest_resistance"] and level_values is not None:
+                        f"  {Fore.CYAN}{level_type}: {Fore.WHITE}{', '.join(map(str, level_values))}"
+                    )
+                elif (
+                    level_type in ["nearest_support", "nearest_resistance"]
+                    and level_values is not None
+                ):
                     self.logger.info(
-                        f"  {Fore.CYAN}{level_type}: {Fore.WHITE}{level_values}")
+                        f"  {Fore.CYAN}{level_type}: {Fore.WHITE}{level_values}"
+                    )
 
         self.logger.info(f" {Fore.YELLOW}--- Trade Suggestions ---")
         if trade_suggestions["long"]:
             self.logger.info(
-                f" {Fore.GREEN}Long Entry: {trade_suggestions['long'].get('entry', 'N/A')}")
+                f" {Fore.GREEN}Long Entry: {trade_suggestions['long'].get('entry', 'N/A')}"
+            )
             self.logger.info(
-                f" {Fore.GREEN}Long Target: {trade_suggestions['long'].get('target', 'N/A')}")
+                f" {Fore.GREEN}Long Target: {trade_suggestions['long'].get('target', 'N/A')}"
+            )
         else:
             self.logger.info(f" {Fore.YELLOW}No Long Trade Suggestions")
 
         if trade_suggestions["short"]:
             self.logger.info(
-                f" {Fore.RED}Short Entry: {trade_suggestions['short'].get('entry', 'N/A')}")
+                f" {Fore.RED}Short Entry: {trade_suggestions['short'].get('entry', 'N/A')}"
+            )
             self.logger.info(
-                f" {Fore.RED}Short Target: {trade_suggestions['short'].get('target', 'N/A')}")
+                f" {Fore.RED}Short Target: {trade_suggestions['short'].get('target', 'N/A')}"
+            )
         else:
             self.logger.info(f" {Fore.YELLOW}No Short Trade Suggestions")
         self.logger.info(f" {Fore.YELLOW}--- End Analysis ---")
+
 
 # --- Main Execution ---
 

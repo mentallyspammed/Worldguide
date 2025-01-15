@@ -4,7 +4,14 @@ import requests
 import pandas as pd
 import numpy as np
 import ta
-from ta.trend import SMAIndicator, MACD, EMAIndicator, ADXIndicator, AroonIndicator, WMAIndicator
+from ta.trend import (
+    SMAIndicator,
+    MACD,
+    EMAIndicator,
+    ADXIndicator,
+    AroonIndicator,
+    WMAIndicator,
+)
 from ta.volatility import AverageTrueRange
 from ta.momentum import rsi
 from ta.volume import on_balance_volume, volume_price_trend
@@ -28,6 +35,7 @@ SUPPORT_RESISTANCE_WINDOW = 14
 CLUSTER_SENSITIVITY = 0.05
 HIGHER_TIMEFRAMES = ["60", "240", "D"]  # For higher timeframe analysis
 
+
 # --- Configuration ---
 class Config:
     def __init__(self):
@@ -37,7 +45,10 @@ class Config:
         self.base_url = os.getenv("BYBIT_BASE_URL", "https://api.bybit.com")
 
         if not self.api_key or not self.api_secret:
-            raise ValueError("API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env")
+            raise ValueError(
+                "API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env"
+            )
+
 
 # --- Bybit API Client ---
 class Bybit:
@@ -58,7 +69,9 @@ class Bybit:
             try:
                 params = params or {}
                 params["api_key"] = self.config.api_key
-                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["timestamp"] = str(
+                    int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000)
+                )
                 params["sign"] = self._generate_signature(params)
 
                 url = f"{self.config.base_url}{endpoint}"
@@ -73,7 +86,9 @@ class Bybit:
                     continue
 
                 if response.status_code != 200:
-                    self.logger.error(f"Bybit API Error {response.status_code}: {response.text}")
+                    self.logger.error(
+                        f"Bybit API Error {response.status_code}: {response.text}"
+                    )
                     return {"retCode": -1, "retMsg": f"HTTP {response.status_code}"}
 
                 json_response = response.json()
@@ -96,20 +111,38 @@ class Bybit:
 
         return {"retCode": -1, "retMsg": "Max retries exceeded"}
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         endpoint = "/v5/market/kline"
-        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+            "category": "linear",
+        }
         response = self._request("GET", endpoint, params)
 
         if response.get("retCode") == 0 and response.get("result"):
             klines = response["result"]["list"]
             df = pd.DataFrame(
                 klines,
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
             df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
             df = df.astype(
-                {col: float for col in ["open", "high", "low", "close", "volume", "turnover"]}
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
             )
             return df
         else:
@@ -137,6 +170,7 @@ class Bybit:
                 f"Failed to fetch price for {symbol}: {response.get('retMsg', 'Unknown error')}"
             )
             return None
+
 
 # --- Technical Analysis Module (Enhanced) ---
 class TradingAnalyzer:
@@ -173,10 +207,14 @@ class TradingAnalyzer:
     def calculate_momentum(self, window: int = 14) -> pd.Series:
         return self.df["close"].diff(window)
 
-    def calculate_fibonacci_retracement(self, high: float, low: float) -> Dict[str, float]:
+    def calculate_fibonacci_retracement(
+        self, high: float, low: float
+    ) -> Dict[str, float]:
         diff = high - low
         if diff == 0:
-            self.logger.warning("Cannot calculate Fibonacci: high and low are the same.")
+            self.logger.warning(
+                "Cannot calculate Fibonacci: high and low are the same."
+            )
             return {}
 
         fib_levels = {
@@ -191,7 +229,9 @@ class TradingAnalyzer:
         }
         return fib_levels
 
-    def calculate_pivot_points(self, high: float, low: float, close: float) -> Dict[str, float]:
+    def calculate_pivot_points(
+        self, high: float, low: float, close: float
+    ) -> Dict[str, float]:
         """Calculates pivot points."""
         pivot = (high + low + close) / 3
         r1 = 2 * pivot - low
@@ -242,23 +282,27 @@ class TradingAnalyzer:
 
     def calculate_adx(self, window: int = 14) -> pd.DataFrame:
         """Calculates the Average Directional Index (ADX) with +DI and -DI."""
-        adx_indicator = ADXIndicator(self.df["high"], self.df["low"], self.df["close"], window=window)
-        return pd.DataFrame({
-            "ADX": adx_indicator.adx(),
-            "+DI": adx_indicator.adx_pos(),
-            "-DI": adx_indicator.adx_neg(),
-        })
+        adx_indicator = ADXIndicator(
+            self.df["high"], self.df["low"], self.df["close"], window=window
+        )
+        return pd.DataFrame(
+            {
+                "ADX": adx_indicator.adx(),
+                "+DI": adx_indicator.adx_pos(),
+                "-DI": adx_indicator.adx_neg(),
+            }
+        )
 
     def calculate_aroon(self, window: int = 25) -> pd.DataFrame:
         """Calculates the Aroon Indicator."""
-        aroon_indicator = AroonIndicator(
-            high=self.df["high"], low=self.df["low"]
+        aroon_indicator = AroonIndicator(high=self.df["high"], low=self.df["low"])
+        return pd.DataFrame(
+            {
+                "Aroon Up": aroon_indicator.aroon_up(),
+                "Aroon Down": aroon_indicator.aroon_down(),
+                "Aroon Indicator": aroon_indicator.aroon_indicator(),
+            }
         )
-        return pd.DataFrame({
-            "Aroon Up": aroon_indicator.aroon_up(),
-            "Aroon Down": aroon_indicator.aroon_down(),
-            "Aroon Indicator": aroon_indicator.aroon_indicator(),
-        })
 
     def calculate_obv(self) -> pd.Series:
         """Calculates On-Balance Volume (OBV)."""
@@ -269,7 +313,9 @@ class TradingAnalyzer:
         return volume_price_trend(self.df["close"], self.df["volume"])
 
     def identify_support_resistance(
-        self, window: int = SUPPORT_RESISTANCE_WINDOW, sensitivity: float = CLUSTER_SENSITIVITY
+        self,
+        window: int = SUPPORT_RESISTANCE_WINDOW,
+        sensitivity: float = CLUSTER_SENSITIVITY,
     ) -> Dict[str, Tuple[float, float]]:
         data = self.df["close"].values
         volumes = self.df["volume"].values
@@ -295,7 +341,9 @@ class TradingAnalyzer:
         all_points = np.concatenate((maxima, minima))
 
         if len(all_points) < 2:
-            self.logger.warning("Not enough data points to identify support/resistance levels.")
+            self.logger.warning(
+                "Not enough data points to identify support/resistance levels."
+            )
             return levels
 
         # Manually cluster points into groups
@@ -377,12 +425,12 @@ class TradingAnalyzer:
             return "bearish"  # MACD below Signal and Histogram negative
         elif macd_line > signal_line and histogram < 0:
             return (
-                "potential bearish reversal"
-            )  # MACD above Signal but Histogram negative
+                "potential bearish reversal"  # MACD above Signal but Histogram negative
+            )
         elif macd_line < signal_line and histogram > 0:
             return (
-                "potential bullish reversal"
-            )  # MACD below Signal but Histogram positive
+                "potential bullish reversal"  # MACD below Signal but Histogram positive
+            )
         else:
             return "neutral"
 
@@ -415,7 +463,9 @@ class TradingAnalyzer:
         else:
             return "neutral"  # Weak or no trend
 
-    def analyze_higher_timeframes(self, higher_timeframes: List[str]) -> Dict[str, Dict[str, float]]:
+    def analyze_higher_timeframes(
+        self, higher_timeframes: List[str]
+    ) -> Dict[str, Dict[str, float]]:
         """Analyzes support/resistance on higher timeframes."""
         higher_tf_levels = {}
         for tf in higher_timeframes:
@@ -525,7 +575,9 @@ class TradingAnalyzer:
 
         # Log ATR
         if self.df["atr"] is not None:
-            self.logger.info(f"{Fore.YELLOW}ATR:{Fore.MAGENTA} {self.df['atr'].iloc[-1]:.2f}")
+            self.logger.info(
+                f"{Fore.YELLOW}ATR:{Fore.MAGENTA} {self.df['atr'].iloc[-1]:.2f}"
+            )
         else:
             self.logger.info(f"{Fore.YELLOW}ATR:{Fore.MAGENTA} None")
 
@@ -544,9 +596,13 @@ class TradingAnalyzer:
         self.logger.info(f"{Fore.YELLOW}Pivot Point Levels ({self.interval}):")
         for level, value in self.pivot_points.items():
             label_color = (
-                Fore.GREEN if level == "Pivot" else (Fore.BLUE if level.startswith("S") else Fore.RED)
+                Fore.GREEN
+                if level == "Pivot"
+                else (Fore.BLUE if level.startswith("S") else Fore.RED)
             )
-            self.logger.info(f"{label_color} {level}: {Fore.CYAN} {value:.2f}{Style.RESET_ALL}")
+            self.logger.info(
+                f"{label_color} {level}: {Fore.CYAN} {value:.2f}{Style.RESET_ALL}"
+            )
 
         # Log Fibonacci levels
         self.logger.info(f"{Fore.YELLOW}Fibonacci Levels ({self.interval}):")
@@ -605,8 +661,12 @@ class TradingAnalyzer:
             self.logger.info(f"{Fore.RED}  No short entry suggested.")
 
         # Log WMA, HMA, MACD, ADX, Aroon, OBV, VPT, and RSI
-        self.logger.info(f"{Fore.YELLOW}WMA (14):{Fore.CYAN} {self.df['wma'].iloc[-1]:.2f}")
-        self.logger.info(f"{Fore.YELLOW}HMA (14):{Fore.CYAN} {self.df['hma'].iloc[-1]:.2f}")
+        self.logger.info(
+            f"{Fore.YELLOW}WMA (14):{Fore.CYAN} {self.df['wma'].iloc[-1]:.2f}"
+        )
+        self.logger.info(
+            f"{Fore.YELLOW}HMA (14):{Fore.CYAN} {self.df['hma'].iloc[-1]:.2f}"
+        )
         self.logger
         self.logger.info(f"{Fore.YELLOW}MACD Analysis: {Fore.MAGENTA}{macd_analysis}")
         self.logger.info(
@@ -620,6 +680,7 @@ class TradingAnalyzer:
         self.logger.info(
             f"{Fore.YELLOW}RSI:{Fore.CYAN} {rsi_value.iloc[-1]:.2f} ({rsi_analysis})"
         )
+
 
 # --- HMA Calculation Function (Outside the Class) ---
 def calculate_hma(series: pd.Series, window: int) -> pd.Series:
@@ -639,6 +700,7 @@ def calculate_hma(series: pd.Series, window: int) -> pd.Series:
     hma = subtracted.rolling(window=int(np.sqrt(window))).mean()
     return hma
 
+
 # --- Logging Setup ---
 def setup_logger(name: str) -> logging.Logger:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -649,16 +711,21 @@ def setup_logger(name: str) -> logging.Logger:
 
     os.makedirs(LOG_DIR, exist_ok=True)
     file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(file_handler)
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(
-        logging.Formatter(f"{Fore.BLUE}%(asctime)s{Fore.RESET} - %(levelname)s - %(message)s")
+        logging.Formatter(
+            f"{Fore.BLUE}%(asctime)s{Fore.RESET} - %(levelname)s - %(message)s"
+        )
     )
     logger.addHandler(stream_handler)
 
     return logger
+
 
 # --- Main Function ---
 def main():
@@ -683,7 +750,9 @@ def main():
 
             analyzer.df = analyzer.bybit.fetch_klines(symbol, interval, limit=200)
             if analyzer.df.empty:
-                logger.error(f"{Fore.RED}Failed to fetch klines for {symbol} ({interval}).")
+                logger.error(
+                    f"{Fore.RED}Failed to fetch klines for {symbol} ({interval})."
+                )
                 time.sleep(30)
                 continue
 
@@ -695,6 +764,7 @@ def main():
         logger.info(f"{Fore.YELLOW}Exiting script.")
     except Exception as e:
         logger.exception(f"{Fore.RED}An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()
