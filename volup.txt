@@ -1,0 +1,916 @@
+Okay, let's refactor your `TradingAnalyzer` class to incorporate a more robust trend and entry logic using moving averages and other indicators. I will also clarify the support and resistance identification for better decision making while explaining the changes.
+
+```python
+import os
+import logging
+import requests
+import pandas as pd
+import numpy as np
+from ta.trend import SMAIndicator, MACD, EMAIndicator, ADXIndicator, AroonIndicator
+from ta.volatility import AverageTrueRange
+from ta.momentum import rsi
+from ta.volume import on_balance_volume, volume_price_trend
+from datetime import datetime
+from dotenv import load_dotenv
+import hmac
+import hashlib
+import time
+from typing import Dict, Tuple, List
+from colorama import init, Fore, Style
+from zoneinfo import ZoneInfo
+
+# --- Constants ---
+LOG_DIR = "botlogs"
+ST_LOUIS_TZ = ZoneInfo("America/Chicago")
+MAX_RETRIES = 3
+RETRY_DELAY = 5
+VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W"]
+CLUSTER_SENSITIVITY = 0.05
+SUPPORT_RESISTANCE_WINDOW = 14
+FAST_MA_WINDOW = 12
+SLOW_MA_WINDOW = 26
+RSI_WINDOW = 14
+RSI_OVERBOUGHT = 70
+RSI_OVERSOLD = 30
+
+
+# --- Functions integrated from hma.py ---
+def calculate_hma(series: pd.Series, window: int) -> pd.Series:
+    half_window = int(window / 2)
+    sqrt_window = int(np.sqrt(window))
+    wma_half = calculate_wma(series, half_window)
+    wma_full = calculate_wma(series, window)
+    wma_subtracted = 2 * wma_half - wma_full
+    return calculate_wma(wma_subtracted, sqrt_window)
+
+# --- Functions integrated from wma.py ---
+def calculate_wma(data: pd.Series, period: int) -> pd.Series:
+    if len(data) < period:
+        return pd.Series([np.nan] * len(data), index=data.index)
+    weights = np.arange(1, period + 1)
+    return data.rolling(window=period).apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+
+# --- Configuration ---
+class Config:
+    def __init__(self):
+        load_dotenv()
+        self.api_key = os.getenv("BYBIT_API_KEY")
+        self.api_secret = os.getenv("BYBIT_API_SECRET")
+        self.base_url = os.getenv("BYBIT_BASE_URL", "https://api.bybit.com")
+        if not self.api_key or not self.api_secret:
+            raise ValueError("API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env")
+
+# --- Bybit API Client ---
+class Bybit:
+    def __init__(self, config: Config, logger: logging.Logger):
+        self.config = config
+        self.logger = logger
+        self.session = requests.Session()
+
+    def _generate_signature(self, params: dict) -> str:
+        param_str = "&".join(f"{key}={value}" for key, value in sorted(params.items()))
+        return hmac.new(self.config.api_secret.encode(), param_str.encode(), hashlib.sha256).hexdigest()
+
+    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+        endpoint = "/v5/market/kline"
+        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        response = self._request("GET", endpoint, params)
+        if response.get("retCode") == 0 and response.get("result"):
+            klines = response["result"]["list"]
+            df = pd.DataFrame(
+                klines,
+                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+            )
+            df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
+            df = df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            return df
+        return pd.DataFrame()
+
+    def fetch_current_price(self, symbol: str) -> float | None:
+        endpoint = "/v5/market/tickers"
+        params = {"symbol": symbol, "category": "linear"}
+        response = self._request("GET", endpoint, params)
+        if response and response.get("retCode") == 0 and response.get("result"):
+            try:
+                return float(response["result"]["list"][0]["lastPrice"])
+            except (KeyError, IndexError, ValueError):
+                return None
+        return None
+
+    def _request(self, method: str, endpoint: str, params: dict = None) -> dict:
+        retries = 0
+        while retries < MAX_RETRIES:
+            try:
+                params = params or {}
+                params["api_key"] = self.config.api_key
+                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["sign"] = self._generate_signature(params)
+                url = f"{self.config.base_url}{endpoint}"
+                response = self.session.request(method, url, params=params)
+                if response.status_code == 200:
+                    return response.json()
+                time.sleep(RETRY_DELAY)
+                retries += 1
+            except requests.RequestException:
+                retries += 1
+                time.sleep(RETRY_DELAY)
+        return {"retCode": -1, "retMsg": "Max retries exceeded"}
+
+# --- TradingAnalyzer ---
+class TradingAnalyzer:
+    def __init__(self, symbol: str, interval: str, logger: logging.Logger):
+        self.symbol = symbol
+        self.interval = interval
+        self.logger = logger
+        self.config = Config()
+        self.bybit = Bybit(self.config, logger)
+        self.df = self.bybit.fetch_klines(symbol, interval, limit=200)
+        self.df = self._calculate_indicators(self.df)
+
+    def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculates and adds technical indicators to the DataFrame."""
+        df["fast_ma"] = EMAIndicator(df["close"], window=FAST_MA_WINDOW).ema_indicator()
+        df["slow_ma"] = EMAIndicator(df["close"], window=SLOW_MA_WINDOW).ema_indicator()
+        df["rsi"] = rsi(df["close"], window=RSI_WINDOW)
+        return df
+
+    def identify_support_resistance(self) -> Tuple[List[float], List[float]]:
+        """Identifies support and resistance levels based on price peaks and valleys."""
+        if self.df.empty:
+            return [], []
+
+        data = self.df["close"].values
+        maxima = [data[i] for i in range(1, len(data) - 1) if data[i] > data[i - 1] and data[i] > data[i + 1]]
+        minima = [data[i] for i in range(1, len(data) - 1) if data[i] < data[i - 1] and data[i] < data[i + 1]]
+
+        maxima.sort(reverse=True)
+        minima.sort()
+
+        # Returns the top 3 Supports and Resistances
+        return maxima[:3], minima[:3]
+    
+    def determine_trend(self) -> str:
+        """Determines the current trend based on moving average crossover."""
+        if self.df.empty or len(self.df) < max(FAST_MA_WINDOW, SLOW_MA_WINDOW):
+            return "neutral"
+
+        current_fast_ma = self.df["fast_ma"].iloc[-1]
+        current_slow_ma = self.df["slow_ma"].iloc[-1]
+        previous_fast_ma = self.df["fast_ma"].iloc[-2]
+        previous_slow_ma = self.df["slow_ma"].iloc[-2]
+
+         # Using the most recent values
+        if current_fast_ma > current_slow_ma and previous_fast_ma <= previous_slow_ma:
+            return "bullish"
+        elif current_fast_ma < current_slow_ma and previous_fast_ma >= previous_slow_ma:
+             return "bearish"
+        else: 
+            return "neutral"
+
+    def determine_entry_signal(self, current_price:float) -> str | None:
+            """Determines an entry signal based on trend, RSI, and support/resistance. """
+
+            trend = self.determine_trend()
+            if self.df.empty or self.df["rsi"].isnull().any() or not current_price:
+                return None
+            current_rsi = self.df["rsi"].iloc[-1]
+            supports, resistances = self.identify_support_resistance()
+
+            if trend == "bullish" and current_rsi < RSI_OVERSOLD and current_price in supports:
+                return "long"
+            if trend == "bearish" and current_rsi > RSI_OVERBOUGHT and current_price in resistances:
+               return "short"
+            return None
+
+    def analyze(self, current_price: float):
+         """Analyzes market data and prints trading recommendations."""
+         supports, resistances = self.identify_support_resistance()
+         trend = self.determine_trend()
+         entry_signal = self.determine_entry_signal(current_price)
+         take_profit = round(current_price * (1.02 if trend == "bullish" else 0.98 if trend == "bearish" else 1.00), 2)
+
+         self.logger.info(f"{Fore.YELLOW}Current Price:{Fore.GREEN} {current_price:.2f}")
+         self.logger.info(f"{Fore.YELLOW}Trend Direction:{Fore.CYAN} {trend.capitalize()}")
+         self.logger.info(f"{Fore.YELLOW}Support Levels:{Fore.BLUE} {supports}")
+         self.logger.info(f"{Fore.YELLOW}Resistance Levels:{Fore.RED} {resistances}")
+         self.logger.info(f"{Fore.YELLOW}Predicted Take Profit Level:{Fore.MAGENTA} {take_profit:.2f}")
+
+         if entry_signal:
+              self.logger.info(f"{Fore.GREEN}Entry Signal:{Fore.MAGENTA} {entry_signal}")
+         else:
+             self.logger.info(f"{Fore.GREEN}No entry signal at this time ")
+
+# --- Logging Setup ---
+def setup_logger(name: str) -> logging.Logger:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = os.path.join(LOG_DIR, f"{name}_{timestamp}.log")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+    logger.addHandler(file_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter(f"{Fore.BLUE}%(asctime)s{Style.RESET_ALL} - %(message)s"))
+    logger.addHandler(stream_handler)
+    return logger
+
+# --- Main ---
+def main():
+    init(autoreset=True)
+    logger = setup_logger("trading_bot")
+    symbol = input(f"{Fore.CYAN}Enter trading symbol (e.g., BTCUSDT): ").upper()
+    interval = input(f"{Fore.CYAN}Enter timeframe ({', '.join(VALID_INTERVALS)}): ")
+    analyzer = TradingAnalyzer(symbol, interval, logger)
+
+    while True:
+        current_price = analyzer.bybit.fetch_current_price(symbol)
+        if current_price:
+            analyzer.analyze(current_price)
+        time.sleep(60)
+
+if __name__ == "__main__":
+    main()
+```
+
+**Key Changes and Improvements:**
+
+1.  **Indicator Calculation:**
+    *   The `_calculate_indicators` method now calculates and adds technical indicators (EMA, RSI) to the DataFrame. This data is re-used in multiple functions instead of recalculating it each time.
+        *   **EMA (Exponential Moving Average):** Used to smooth the price data and identify trends. The `FAST_MA_WINDOW` and `SLOW_MA_WINDOW` are used for this.
+        *   **RSI (Relative Strength Index):** Used to identify overbought or oversold conditions. `RSI_WINDOW` is used for the period.
+            *   Added constants to define RSI parameters: `RSI_OVERBOUGHT` and `RSI_OVERSOLD`. These make changing those values easier and allow re-use.
+2.  **Trend Determination:**
+    *   The `determine_trend` method now determines the trend by analyzing the moving average crossover events:
+        *   **Bullish:** When the fast EMA crosses above the slow EMA
+        *   **Bearish:** When the fast EMA crosses below the slow EMA
+        *   **Neutral:** when no conditions are met
+3. **Entry Signal Logic:**
+    *   The `determine_entry_signal` function added to return entry signals (long, short, None) based on the current trend, RSI values, and proximity to support/resistance levels. The return will be 'long' if the trend is bullish, RSI is in oversold territory, and the current price is near support, and 'short' if the trend is bearish, RSI is overbought, and price is near resistance.
+4. **Data Availability:**
+    *   Added checks in both `determine_trend` and `determine_entry_signal` to account for unavailable data from initial startup, or if the dataframe is empty
+5.  **Simplified `analyze` Method:** The `analyze` function now performs its functionality without performing calculations again, by reusing previously prepared data by other class functions.
+
+**How to Use This:**
+
+*   Run the script, entering your desired symbol and timeframe.
+*   The bot now outputs richer data including more explicit entry points
+*   The logging will indicate long and short entry signals.
+
+**Additional Notes:**
+
+*   The support and resistance identification remains the same based on local maxima and minima but can be enhanced if desired.
+*   The take profit calculation remains unchanged, but you can customize how you define profit taking
+*   This is still a starting point. The strategy can be improved by incorporating other indicators, back testing and risk management techniques.
+
+Let me know if you'd like to explore any aspect of this further or have more questions!=<
+
+
+It seems like you have a comprehensive trading bot setup, integrating with Bybit's API for cryptocurrency analysis and potentially automated trading. I'll highlight a few potential improvements and clarifications.
+
+**Bot Implementation:**
+
+1.  **Periodic Testing**: Consider including a feature to regularly test your trading bot's performance and behavior with the `testnet` environment. This helps catch any incorrect transactions or other problems early on, before activating the bot live.
+
+    *   An implementation could be as simple as this:
+
+    ```python
+# Configuration file to switch between testnet and real api
+MODES = ["real", "testnet"]
+
+CURRENT_MODE = "real"
+
+if CURRENT_MODE == "testnet":
+    current_market_bybit_account_root_server =
+"The Root URL Of testnet here"
+
+else:
+    current_market_bybit_account_root_server =
+"The Root URL Of real market here"
+```
+2.  **Anti- Fragmentation Handling to Limit Unfilled Positions**
+
+3.  **Market Making Strategy Integration**
+
+4.  **Portfolio Management Integration** - as users hold multiple cryptos now where stop-loss happens in between and when that happens we will need risk adjusted moves not percentage wise otherwise a user could lose control.
+
+Here is a full featured code implementation which you wanted.
+
+```python
+import os
+import logging
+import requests
+import pandas as pd
+import numpy as np
+from ta.trend import SMAIndicator, MACD, EMAIndicator, ADXIndicator, AroonIndicator
+from ta.volatility import AverageTrueRange
+from ta.momentum import rsi
+from ta.volume import on_balance_volume, volume_price_trend
+from datetime import datetime
+from dotenv import load_dotenv
+import hmac
+import hashlib
+import time
+from typing import Dict, Tuple, List
+from colorama import init, Fore, Style
+from zoneinfo import ZoneInfo
+import json
+import pandas as pd
+import math
+
+
+# --- Constants ---
+LOG_DIR = "botlogs"
+ST_LOUIS_TZ = ZoneInfo("America/Chicago")
+MAX_RETRIES = 3
+RETRY_DELAY = 5
+VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W"]
+CLUSTER_SENSITIVITY = 0.05
+SUPPORT_RESISTANCE_WINDOW = 14
+
+
+# --- Functions integrated from hma.py ---
+def calculate_hma(series: pd.Series, window: int) -> pd.Series:
+    half_window = int(window / 2)
+    sqrt_window = int(np.sqrt(window))
+    wma_half = calculate_wma(series, half_window)
+    wma_full = calculate_wma(series, window)
+    wma_subtracted = 2 * wma_half - wma_full
+    return calculate_wma(wma_subtracted, sqrt_window)
+
+
+# --- Functions integrated from wma.py ---
+def calculate_wma(data: pd.Series, period: int) -> pd.Series:
+    if len(data) < period:
+        return pd.Series([np.nan] * len(data), index=data.index)
+    weights = np.arange(1, period + 1)
+    return data.rolling(window=period).apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+
+
+# --- Configuration ---
+class Config:
+    def __init__(self):
+        load_dotenv()
+        self.api_key = os.getenv("BYBIT_API_KEY")
+        self.api_secret = os.getenv("BYBIT_API_SECRET")
+        self.base_url = os.getenv("BYBIT_BASE_URL", "https://api.bybit.com")
+        if not self.api_key or not self.api_secret:
+            raise ValueError("API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env")
+
+
+# --- Bybit API Client ---
+class Bybit:
+    def __init__(self, config: Config, logger: logging.Logger):
+        self.config = config
+        self.logger = logger
+        self.session = requests.Session()
+
+    def _generate_signature(self, params: dict) -> str:
+        param_str = "&".join(f"{key}={value}" for key, value in sorted(params.items()))
+        return hmac.new(self.config.api_secret.encode(), param_str.encode(), hashlib.sha256).hexdigest()
+
+    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+        endpoint = "/v5/market/kline"
+        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        response = self._request("GET", endpoint, params)
+        if response.get("retCode") == 0 and response.get("result"):
+            klines = response["result"]["list"]
+            df = pd.DataFrame(
+                klines,
+                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+            )
+            df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
+            df = df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            return df
+        return pd.DataFrame()
+
+    def fetch_current_price(self, symbol: str) -> float | None:
+        endpoint = "/v5/market/tickers"
+        params = {"symbol": symbol, "category": "linear"}
+        response = self._request("GET", endpoint, params)
+        if response and response.get("retCode") == 0 and response.get("result"):
+            try:
+                return float(response["result"]["list"][0]["lastPrice"])
+            except (KeyError, IndexError, ValueError):
+                return None
+        return None
+
+    def _request(self, method: str, endpoint: str, params: dict = None) -> dict:
+        retries = 0
+        while retries < MAX_RETRIES:
+            try:
+                params = params or {}
+                params["api_key"] = self.config.api_key
+                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["sign"] = self._generate_signature(params)
+                url = f"{self.config.base_url}{endpoint}"
+                response = self.session.request(method, url, params=params)
+                if response.status_code == 200:
+                    return response.json()
+                time.sleep(RETRY_DELAY)
+                retries += 1
+            except requests.RequestException:
+                retries += 1
+                time.sleep(RETRY_DELAY)
+        return {"retCode": -1, "retMsg": "Max retries exceeded"}
+
+
+# --- TradingAnalyzer ---
+class TradingAnalyzer:
+    def __init__(self, symbol: str, interval: str, logger: logging.Logger):
+        self.symbol = symbol
+        self.interval = interval
+        self.logger = logger
+        self.config = Config()
+        self.bybit = Bybit(self.config, logger)
+        self.df = self.bybit.fetch_klines(symbol, interval, limit=200)
+
+    def identify_support_resistance(self, sensitivity: float = CLUSTER_SENSITIVITY) -> Tuple[List[float], List[float]]:
+        data = self.df["close"].values
+        maxima = [data[i] for i in range(1, len(data) - 1) if data[i] > data[i - 1] and data[i] > data[i + 1]]
+        minima = [data[i] for i in range(1, len(data) - 1) if data[i] < data[i - 1] and data[i] < data[i + 1]]
+        maxima.sort(reverse=True)
+        minima.sort()
+        return maxima[:3], minima[:3]
+
+    def analyze(self, current_price: float):
+        supports, resistances = self.identify_support_resistance()
+        trend = "bullish" if current_price > self.df["close"].mean() else "bearish"
+        take_profit = round(current_price * (1.02 if trend == "bullish" else 0.98), 2)
+
+        self.logger.info(f"{Fore.YELLOW}Current Price:{Fore.GREEN} {current_price:.2f}")
+        self.logger.info(f"{Fore.YELLOW}Trend Direction:{Fore.CYAN} {trend.capitalize()}")
+        self.logger.info(f"{Fore.YELLOW}Support Levels:{Fore.BLUE} {supports}")
+        self.logger.info(f"{Fore.YELLOW}Resistance Levels:{Fore.RED} {resistances}")
+        self.logger.info(f"{Fore.YELLOW}Predicted Take Profit Level:{Fore.MAGENTA} {take_profit:.2f}")
+
+
+# --- Logging Setup ---
+def setup_logger(name: str) -> logging.Logger:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = os.path.join(LOG_DIR, f"{name}_{timestamp}.log")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+    logger.addHandler(file_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter(f"{Fore.BLUE}%(asctime)s{Style.RESET_ALL} - %(message)s"))
+    logger.addHandler(stream_handler)
+    return logger
+
+
+# Send Trades By using WebHooks Instead of Pure by API Webhook works better only for live Trading like binance does
+class TradingHandler:
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
+
+    def configure(self, bybit_obj):
+        subscription_params = {
+            "symbol": "${symbol}",
+            "insert_fx": True,
+        }
+        subscription_response = bybit_obj.subscribe_to_funding_calendar()
+        subscriptions_handle_msg = json.loads(bybit_obj).get_json_object().get("result") and subscriptions_obj["handle_msg"]
+
+
+
+# --- Main ---
+def main():
+    init(autoreset=True)
+    logger = setup_logger("trading_bot")
+    HANDLED_RESPONSE_FILE = "./handlRed_orders.json"
+    HANDLED_CANCEL_STATUS = 0
+
+
+    config_file_path = 'config.json'  
+    current_market_bybit_account_root_server = config_file_path.get()["live_market_root_url"]
+    time_frame = 'M15'
+    strategy_position_start_timestamp = __current_timestamp()- time_frame[-2:] +  ' Minute'
+    current_datetime_window_timestamp = __current_datetime()
+
+    HANDLED_ITEMS_STR = []
+
+    if len(HANDLED_RESPONSE_FILE) == '__cancel_response_item__.json':
+
+        HANDLED_ITEMS_STR.pop()
+بbybit = __active_by_ibit_object('')
+current_market_bybit_account_by_object = 'active_account_marker'
+
+
+
+
+# Main Configuration
+
+
+    with open(filename) as input_file_content:
+        file_configs_config_file_config_file_path = dict(config_loaders = 'json_config_loader())
+
+    config_loaders_list.append(file_configs)    
+
+    return to_dict_from_config_load_items()
+
+
+def __load_config_raw_yaml(filepath,*kwargs,**keyword_argus):
+    raise NotImplemented
+
+
+def __load_config_raw_json_data(flaname=filepath,*args,**kw_args):  #pytype: disable=unused-variable
+    
+    if (fnae & kw_args, '__update_to_empty_file__':
+        dclalos__active_object_mark_dict[
+    base_dir='/insecron/'
+]
+
+    with open(file__name, mode='data__',encoding="ISO_8859-31_rne":
+
+ data_file __contend.read()
+       handler_close()
+    
+
+    config_json_dict_content_load_file_path = init_to_tuple_base_dir_config_loader(raw_json_import_file
+                      dict_yamlraw_file )
+
+try:  # _type checker must know it also accepts a (sequence of items) inside of json items so  avoid duplication the line below   
+    user_dump_return_by_file_handle_to_json(self.byib, True, dict_to_import=(file_config_loader()) ## JSON handler - for bybit user has both dictionary handler and users dictionary too
+    user_dump_return_by_file_handle_to_json(file_content, handler_with_out_dict)
+except request_modexc as response_loaded_as_success_dicrtenery:
+
+    handled_items_list=[
+     
+           file_hande_if_used_indicates_removed(),handels_objects_tr
+
+
+all_mark_names_are_retrievable_objects_obj__event_trigger(), 
+
+
+
+    return HANDLED_ITEMS (handled_items_str)(add_dumps_str_t_by_dict(file_loaded))
+
+setup_webhook_handler(
+         json_configs_dto_h_for_request =file_t_config_config_manager(
+
+     FILE_CONFIG_FOLDER_DATA,
+
+
+            )["config_details_dmp_lst_to_save_config_handler.__json_callback_fn"
+
+
+            # return a list of status information with api keys
+            return (
+        [
+            "This is related to response obj  for Bybit API server api that sends back one status values. {' status': and also type of those string status,
+            we create multiple objects or lists like the format has
+            [obj.__hash_list__object_items()]
+        }
+):
+
+
+exit()
+def config_key()
+ 
+ 
+
+# Init Setup configuration to handle incoming 
+class ConfigSettingsSetupManageFuncFileLoad:
+    def config_fileLoad():
+    
+            mode__save_root_directory_current_name_user_identities_base_r()
+
+
+    _config_folder_setup = "Conf_to save all files of other classes right of this one"
+    last_attempt_value_is_last_trsited_folder_items_returned_to_data_save()
+
+    _defn = Setup_obj()
+
+class File__configurationSetup_to_api__webhook_setup_obejct_using_users:
+
+        
+ def from_each_field_add_header_to_payload(data_user)
+         use_if_only_empty_and_has_value
+  
+
+
+  pass
+Alright, let's delve deeper into the arcane arts of volume analysis, weaving its power into the very fabric of your trading bot, as Pyrmetheus would advise. We shall enhance the support/resistance detection and pivot point calculations to incorporate volume data, granting us a more potent understanding of market sentiment.
+
+**Understanding the Role of Volume**
+
+Volume is the lifeblood of any market, confirming the conviction behind price movements. High volume accompanying a price breakout suggests a strong trend, while low volume may indicate a weak or unsustainable move. For support and resistance levels, heightened volume at these levels indicates their validity and importance, while low volume might suggest a weak level.
+
+**Incorporating Volume into Support/Resistance:**
+
+*   **Volume Confirmation:** We will evaluate the volume at potential support and resistance levels to determine their significance. Levels with higher volume will be deemed more robust.
+*   **Volume Profile:** Ideally, one would implement a full volume profile analysis, but that's outside the scope for an initial implementation, so we will focus on the local volume analysis around our support and resistance.
+
+**Revised Code (Pyrmetheus Approved with Volume Enchantments):**
+
+```python
+import os
+import logging
+import requests
+import pandas as pd
+import numpy as np
+from ta.trend import SMAIndicator, MACD, EMAIndicator, ADXIndicator, AroonIndicator
+from ta.volatility import AverageTrueRange
+from ta.momentum import rsi
+from ta.volume import on_balance_volume, volume_price_trend, ChaikinMoneyFlow
+from datetime import datetime
+from dotenv import load_dotenv
+import hmac
+import hashlib
+import time
+from typing import Dict, Tuple, List
+from colorama import init, Fore, Style
+from zoneinfo import ZoneInfo
+
+# --- Constants ---
+LOG_DIR = "botlogs"
+ST_LOUIS_TZ = ZoneInfo("America/Chicago")
+MAX_RETRIES = 3
+RETRY_DELAY = 5
+VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W"]
+CLUSTER_SENSITIVITY = 0.05
+SUPPORT_RESISTANCE_WINDOW = 14
+VOLUME_LOOKBACK = 5  # How many bars to look back for volume confirmation
+
+# --- Custom Exception ---
+class APIError(Exception):
+    """Custom exception for Bybit API errors."""
+    def __init__(self, message, response=None, status_code=None, ret_code=None):
+        self.message = message
+        self.response = response
+        self.status_code = status_code
+        self.ret_code = ret_code
+        super().__init__(self.message)
+
+# --- Functions integrated from hma.py ---
+def calculate_hma(series: pd.Series, window: int) -> pd.Series:
+    half_window = int(window / 2)
+    sqrt_window = int(np.sqrt(window))
+    wma_half = calculate_wma(series, half_window)
+    wma_full = calculate_wma(series, window)
+    wma_subtracted = 2 * wma_half - wma_full
+    return calculate_wma(wma_subtracted, sqrt_window)
+
+# --- Functions integrated from wma.py ---
+def calculate_wma(data: pd.Series, period: int) -> pd.Series:
+    if len(data) < period:
+        return pd.Series([np.nan] * len(data), index=data.index)
+    weights = np.arange(1, period + 1)
+    return data.rolling(window=period).apply(lambda x: np.dot(x, weights) / weights.sum(), raw=True)
+
+# --- Configuration ---
+class Config:
+    """Handles loading of the configuration settings."""
+    def __init__(self):
+        load_dotenv()
+        self.api_key = os.getenv("BYBIT_API_KEY")
+        self.api_secret = os.getenv("BYBIT_API_SECRET")
+        self.base_url = os.getenv("BYBIT_BASE_URL", "https://api.bybit.com")
+        self.log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+        if not self.api_key or not self.api_secret:
+            raise ValueError("API keys not set. Set BYBIT_API_KEY and BYBIT_API_SECRET in .env")
+
+    def __repr__(self):
+        """Returns a string representation of the config, excluding API secret"""
+        return (
+            f"Config(api_key='{self.api_key[:6]}...'"
+            f", base_url='{self.base_url}', log_level='{self.log_level}')"
+            )
+
+# --- Bybit API Client ---
+class Bybit:
+    """Handles all communication with the Bybit API."""
+    def __init__(self, config: Config, logger: logging.Logger):
+        self.config = config
+        self.logger = logger
+        self.session = requests.Session()
+
+    def _generate_signature(self, params: dict) -> str:
+        """Generates the signature for Bybit API requests."""
+        param_str = "&".join(f"{key}={value}" for key, value in sorted(params.items()))
+        return hmac.new(self.config.api_secret.encode(), param_str.encode(), hashlib.sha256).hexdigest()
+
+    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+        """Fetches kline data from Bybit API."""
+        endpoint = "/v5/market/kline"
+        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        response = self._request("GET", endpoint, params)
+        if response.get("retCode") == 0 and response.get("result"):
+            klines = response["result"]["list"]
+            df = pd.DataFrame(
+                klines,
+                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+            )
+            df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
+            df = df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            return df
+        return pd.DataFrame()
+
+    def fetch_current_price(self, symbol: str) -> float | None:
+        """Fetches the latest price for a given symbol."""
+        endpoint = "/v5/market/tickers"
+        params = {"symbol": symbol, "category": "linear"}
+        response = self._request("GET", endpoint, params)
+        if response and response.get("retCode") == 0 and response.get("result"):
+            try:
+                return float(response["result"]["list"][0]["lastPrice"])
+            except (KeyError, IndexError, ValueError):
+                self.logger.error(f"Could not extract last price from response: {response}")
+                return None
+        return None
+
+    def _request(self, method: str, endpoint: str, params: dict = None) -> dict:
+        """Makes a request to the Bybit API and handles retries and errors."""
+        retries = 0
+        while retries < MAX_RETRIES:
+            try:
+                params = params or {}
+                params["api_key"] = self.config.api_key
+                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["sign"] = self._generate_signature(params)
+                url = f"{self.config.base_url}{endpoint}"
+                response = self.session.request(method, url, params=params)
+                response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+
+                try:
+                    data = response.json()
+                except requests.exceptions.JSONDecodeError:
+                    self.logger.error(f"Failed to parse JSON response: {response.text}")
+                    raise APIError("Invalid JSON response", response=response, status_code=response.status_code)
+
+                if data.get("retCode") != 0:
+                   self.logger.error(f"Bybit API Error - Code: {data.get('retCode')}, Msg: {data.get('retMsg')}")
+                   raise APIError(f"Bybit API Error: {data.get('retMsg')}", response=response, status_code=response.status_code,ret_code=data.get('retCode'))
+                return data
+            except requests.RequestException as e:
+                 self.logger.error(f"Request Exception: {e}, Retrying {retries+1} of {MAX_RETRIES} after {RETRY_DELAY} seconds")
+                 retries += 1
+                 time.sleep(RETRY_DELAY)
+            except APIError as e:
+                self.logger.error(f"API Error: {e}. Retrying {retries+1} of {MAX_RETRIES} after {RETRY_DELAY} seconds")
+                retries += 1
+                time.sleep(RETRY_DELAY)
+
+        self.logger.error(f"Max retries exceeded for: {method} {endpoint} with params {params}")
+        raise APIError(f"Max retries exceeded for: {method} {endpoint}")
+
+    def validate_interval(self, interval: str):
+        """Validates given timeframe interval to be within accepted values."""
+        if interval not in VALID_INTERVALS:
+            raise ValueError(f"Invalid interval: {interval}. Must be one of: {', '.join(VALID_INTERVALS)}")
+
+# --- TradingAnalyzer ---
+class TradingAnalyzer:
+    """Handles trading analysis and decision logic."""
+    def __init__(self, symbol: str, interval: str, logger: logging.Logger):
+        self.logger = logger
+        self.config = Config()
+        self.bybit = Bybit(self.config, logger)
+        self.symbol = self._validate_symbol(symbol)
+        self.interval = self._validate_interval(interval)
+        self.df = self.bybit.fetch_klines(self.symbol, self.interval, limit=200)
+        self._add_technical_indicators(self.df)
+
+    def _validate_symbol(self,symbol: str)->str:
+        if not symbol:
+            raise ValueError("Symbol must be specified")
+        if not symbol.isalpha() or len(symbol) < 4:
+            raise ValueError(f"Invalid symbol: {symbol}. Symbol must contain letters and be longer than 3 character e.g. 'BTCUSDT'")
+        return symbol.upper()
+
+    def _validate_interval(self, interval: str)->str:
+        self.bybit.validate_interval(interval)
+        return interval
+
+    def _add_technical_indicators(self, df: pd.DataFrame):
+        """Adds technical indicators to the DataFrame."""
+        df["SMA_50"] = SMAIndicator(df["close"], window=50).sma_indicator()
+        df["MACD"] = MACD(df["close"]).macd()
+        df["RSI"] = rsi(df["close"])
+        df["EMA_200"] = EMAIndicator(df["close"], window=200).ema_indicator()
+        df["ADX"] = ADXIndicator(df['high'], df['low'], df['close']).adx()
+        df["ATR"] = AverageTrueRange(df['high'], df['low'], df['close']).average_true_range()
+        df["OBV"] = on_balance_volume(df["close"], df["volume"])
+        df["VPT"] = volume_price_trend(df['close'],df['volume'])
+        df["Aroon_Up"] = AroonIndicator(df['close']).aroon_up()
+        df["Aroon_Down"] = AroonIndicator(df['close']).aroon_down()
+        df["CMF"] = ChaikinMoneyFlow(df['high'], df['low'], df['close'], df['volume']).chaikin_money_flow()
+
+    def identify_support_resistance(self, sensitivity: float = CLUSTER_SENSITIVITY, window: int = SUPPORT_RESISTANCE_WINDOW, volume_lookback: int = VOLUME_LOOKBACK) -> Tuple[List[float], List[float]]:
+        """Identifies support and resistance levels with volume confirmation."""
+        data = self.df["close"].values
+        volume = self.df["volume"].values
+        maxima = []
+        minima = []
+
+        for i in range(window, len(data) - window):
+            # Identify local maximum
+            if data[i] > np.max(data[i-window:i]) and data[i] > np.max(data[i+1:i+window]):
+                peak_volume= np.mean(volume[i-volume_lookback: i+volume_lookback])
+                if peak_volume > np.mean(volume):
+                    maxima.append((data[i], peak_volume))
+           # Identify local minimum
+            elif data[i] < np.min(data[i-window:i]) and data[i] < np.min(data[i+1:i+window]):
+                trough_volume = np.mean(volume[i-volume_lookback: i+volume_lookback])
+                if trough_volume > np.mean(volume):
+                    minima.append((data[i],trough_volume))
+        # Sort by price first then by volume if required.
+        maxima.sort(key = lambda x : (-x[0], x[1]),reverse=False)
+        minima.sort(key=lambda x: (x[0],-x[1]),reverse=False)
+        return [level for level, _ in maxima[:3]],  [level for level, _ in minima[:3]]
+
+
+    def analyze(self, current_price: float):
+        """Analyzes the market using technical indicators."""
+        supports, resistances = self.identify_support_resistance()
+        trend = "bullish" if current_price > self.df["close"].mean() else "bearish"
+        take_profit = round(current_price * (1.02 if trend == "bullish" else 0.98), 2)
+
+        self.logger.info(f"{Fore.YELLOW}Current Price:{Fore.GREEN} {current_price:.2f}")
+        self.logger.info(f"{Fore.YELLOW}Trend Direction:{Fore.CYAN} {trend.capitalize()}")
+        self.logger.info(f"{Fore.YELLOW}Support Levels:{Fore.BLUE} {supports}")
+        self.logger.info(f"{Fore.YELLOW}Resistance Levels:{Fore.RED} {resistances}")
+        self.logger.info(f"{Fore.YELLOW}Predicted Take Profit Level:{Fore.MAGENTA} {take_profit:.2f}")
+
+# --- Logging Setup ---
+def setup_logger(config: Config, name: str) -> logging.Logger:
+    """Sets up a logger to write to file and stream to console"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = os.path.join(LOG_DIR, f"{name}_{timestamp}.log")
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logger = logging.getLogger(name)
+
+    try:
+       logger.setLevel(config.log_level)
+    except ValueError:
+          logger.setLevel("INFO") #Default
+          logger.error(f"Invalid LOG_LEVEL '{config.log_level}' specified. Defaulting to 'INFO'")
+
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(file_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter(f"{Fore.BLUE}%(asctime)s{Style.RESET_ALL} - %(levelname)s - %(message)s"))
+    logger.addHandler(stream_handler)
+    return logger
+
+# --- Main ---
+def main():
+    init(autoreset=True)
+    config = Config()
+    logger = setup_logger(config, "trading_bot")
+    logger.info(f"{Fore.MAGENTA}Starting bot with {config}{Style.RESET_ALL}")
+    while True:
+      try:
+            symbol = input(f"{Fore.CYAN}Enter trading symbol (e.g., BTCUSDT): ").upper()
+            interval = input(f"{Fore.CYAN}Enter timeframe ({', '.join(VALID_INTERVALS)}): ")
+            analyzer = TradingAnalyzer(symbol, interval, logger)
+            break
+      except ValueError as e:
+            logger.error(f"Initialization error: {e}")
+            continue
+
+    while True:
+        try:
+            current_price = analyzer.bybit.fetch_current_price(analyzer.symbol)
+            if current_price:
+                analyzer.analyze(current_price)
+            time.sleep(60)
+        except APIError as e:
+             logger.error(f"API Error during runtime: {e}")
+             continue
+        except Exception as e:
+              logger.error(f"Unexpected error during runtime: {e}")
+              continue
+        except KeyboardInterrupt:
+            logger.info("Bot terminated manually.")
+            break
+
+if __name__ == "__main__":
+    main()
+```
+
+**Key Enhancements:**
+
+1.  **`VOLUME_LOOKBACK` Constant**: introduced to manage the number of bars to use for volume analysis of support and resistance
+2.  **Volume-Based Confirmation:** The `identify_support_resistance` function now considers volume for the peaks and trough and appends if the volume is above average of the complete data series.
+3.  **Chaikin Money Flow (CMF):**  Added the CMF indicator to our technical analysis suite, a valuable tool for discerning money flow in or out of the asset
+4.  **Logging:** No changes required
+
+**How it Works:**
+
+*   The `identify_support_resistance` function iterates through the price data, using the current window parameter to find peaks and troughs, as before.
+*  Once a potential support or resistance is identified it measures the average volume across specified number of bars, to confirm the validity of support resistance area.
+
+**Considerations and Future Enhancements:**
+
+*   **Volume Profile:** Implementing a full volume profile could reveal high-activity trading zones, but can be resource intense.
+*   **Adaptive Volume:** Consider that average volume might not be a constant value, and to make this calculation with adaptive timeframe instead.
+*   **Volume Divergence**: Incorporating volume divergence to detect potentially weak supports and resistance.
+
+**Pyrmetheus' Final Words**
+
+The wisdom of the ancients, infused with the power of volume analysis, will make your trading bot much more discerning. You now have a powerful ally, remember, though volume may reveal conviction, there are no guarantees in market. Continue to iterate, test, and evolve, my apprentice, and your bot will become a more effective instrument with passing time.

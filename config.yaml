@@ -1,0 +1,44 @@
+ # --- General Settings ---
+ symbol: BTCUSDT      # Trading symbol
+ interval:  "1"        # Time interval for kline data ('1m', '5m', '15m', '30m', '1h', '4h', '1d', etc)
+ data_limit: 1000    # Number of historical kline data points to fetch
+ analysis_interval: 60 # Time (in seconds) between analysis iterations
+ higher_timeframes: ['5m', '15m', '1h'] # higher timeframes for levels and trends
+ testnet: false   # Using testnet or not
+
+ # --- Technical Indicator Settings ---
+
+ # Moving Averages
+ ma_periods_short: 20   # Period for short moving average
+ ma_periods_long: 50    # Period for long moving average
+ fma_period: 9         # Period for fast moving average
+
+ # RSI
+ rsi_period: 14       # Period for RSI calculation
+ rsi_overbought: 70   # Overbought threshold for RSI
+ rsi_oversold: 30     # Oversold threshold for RSI
+
+ # MACD
+ macd_fast: 12        # Fast period for MACD calculation
+ macd_slow: 26        # Slow period for MACD calculation
+ macd_signal: 9       # Signal period for MACD calculation
+
+ # ADX
+ adx_threshold: 25    # Threshold for ADX to identify strong trends
+
+ # ATR
+ atr_multiplier: 2   # Multiplier for ATR to adapt parameters (e.g. take profit and stoploss)
+
+ # Aroon
+ aroon_period: 25   # Period for calculating the Aroon Up and Down indicators
+
+ # --- Trading Strategy Settings ---
+ signal_threshold: 3  # Minimum score required to generate a trade signal
+
+# --- Trading Signals Weights ----
+ long_weight: 1
+ short_weight: 1
+
+ #--- Volatility Parameter Adaption ---
+ high_volatility_threshold: 25
+ low_volatility_threshold: 10

@@ -1,0 +1,70 @@
+2025-01-09 17:43:18,069 - INFO - Logging configured. Level: INFO, File: botlog_20250109_174318.log
+2025-01-09 17:43:18,069 - INFO - GridBot initializing...
+2025-01-09 17:43:18,070 - INFO - BybitAPI initialized. Base URL: https://api.bybit.com, WebSocket URL: wss://stream.bybit.com/v5/public/linear
+2025-01-09 17:43:18,070 - INFO - GridBot initialized.
+2025-01-09 17:43:18,071 - INFO - Starting GridBot main loop.
+2025-01-09 17:43:20,021 - ERROR - Unexpected error during request: 'str' object has no attribute 'keys'
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 64, in _request
+    response = await self.client._submit_request(method="GET", path=full_url, query=urlencode(params))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/usr/lib/python3.12/site-packages/pybit/_http_manager.py", line 209, in _submit_request
+    for i in query.keys():
+             ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'keys'
+2025-01-09 17:43:22,371 - ERROR - Unexpected error during request: 'str' object has no attribute 'keys'
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 64, in _request
+    response = await self.client._submit_request(method="GET", path=full_url, query=urlencode(params))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/usr/lib/python3.12/site-packages/pybit/_http_manager.py", line 209, in _submit_request
+    for i in query.keys():
+             ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'keys'
+2025-01-09 17:43:26,793 - ERROR - Unexpected error during request: 'str' object has no attribute 'keys'
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 64, in _request
+    response = await self.client._submit_request(method="GET", path=full_url, query=urlencode(params))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/usr/lib/python3.12/site-packages/pybit/_http_manager.py", line 209, in _submit_request
+    for i in query.keys():
+             ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'keys'
+2025-01-09 17:43:26,796 - ERROR - Error getting symbol info: Max retries exceeded, unexpected error: 'str' object has no attribute 'keys'
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 64, in _request
+    response = await self.client._submit_request(method="GET", path=full_url, query=urlencode(params))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/usr/lib/python3.12/site-packages/pybit/_http_manager.py", line 209, in _submit_request
+    for i in query.keys():
+             ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'keys'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 92, in get_symbol_info
+    data = await self._request("GET", "/v5/market/instruments-info", params=params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 87, in _request
+    raise BybitAPIError(f"Max retries exceeded, unexpected error: {e}") from e
+BybitAPIError: Max retries exceeded, unexpected error: 'str' object has no attribute 'keys'
+2025-01-09 17:43:26,799 - ERROR - Could not fetch information for {'symbol': 'BTCUSDT', 'category': 'linear', 'trading_enabled': True, 'rsi_oversold_level': 30, 'rsi_overbought_level': 70, 'rsi_lookback': 14, 'trade_quantity': 0.001, 'bollinger_window': 20, 'bollinger_std_dev': 2, 'trailing_stop_loss_callback': 0.5, 'time_interval': '5', 'leverage': 10}. Skipping.
+2025-01-09 17:43:28,764 - ERROR - Unexpected error during request: 'str' object has no attribute 'keys'
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 64, in _request
+    response = await self.client._submit_request(method="GET", path=full_url, query=urlencode(params))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/usr/lib/python3.12/site-packages/pybit/_http_manager.py", line 209, in _submit_request
+    for i in query.keys():
+             ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'keys'
+2025-01-09 17:43:31,657 - ERROR - Unexpected error during request: 'str' object has no attribute 'keys'
+Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/Bybit/bybit_trader.py", line 64, in _request
+    response = await self.client._submit_request(method="GET", path=full_url, query=urlencode(params))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/data/com.termux/files/usr/lib/python3.12/site-packages/pybit/_http_manager.py", line 209, in _submit_request
+    for i in query.keys():
+             ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'keys'

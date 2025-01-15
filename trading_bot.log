@@ -1,0 +1,211 @@
+2025-01-07 23:54:06,341 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:06,342 - ERROR - Could not get headers in request.
+2025-01-07 23:54:06,621 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:06,622 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:08,146 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:08,147 - ERROR - Could not get headers in request.
+2025-01-07 23:54:08,888 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:08,890 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:10,179 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:10,180 - ERROR - Could not get headers in request.
+2025-01-07 23:54:10,447 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:10,448 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:11,746 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:11,747 - ERROR - Could not get headers in request.
+2025-01-07 23:54:12,608 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:12,609 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:13,909 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:13,910 - ERROR - Could not get headers in request.
+2025-01-07 23:54:14,188 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:14,189 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:15,507 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:15,508 - ERROR - Could not get headers in request.
+2025-01-07 23:54:15,784 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:15,785 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:17,076 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:17,077 - ERROR - Could not get headers in request.
+2025-01-07 23:54:17,426 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:17,427 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:18,713 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:18,714 - ERROR - Could not get headers in request.
+2025-01-07 23:54:18,982 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:18,983 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:21,414 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:21,415 - ERROR - Could not get headers in request.
+2025-01-07 23:54:21,723 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:21,724 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:23,019 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:23,020 - ERROR - Could not get headers in request.
+2025-01-07 23:54:23,289 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:23,290 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:26,451 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:26,452 - ERROR - Could not get headers in request.
+2025-01-07 23:54:26,725 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:26,726 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:28,598 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:28,599 - ERROR - Could not get headers in request.
+2025-01-07 23:54:30,137 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:30,138 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:30,139 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:54:41,362 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:41,364 - ERROR - Could not get headers in request.
+2025-01-07 23:54:41,746 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:41,747 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:41,748 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:54:52,055 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:54:52,056 - ERROR - Could not get headers in request.
+2025-01-07 23:54:53,238 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:54:53,239 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:54:53,239 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:55:03,538 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:55:03,539 - ERROR - Could not get headers in request.
+2025-01-07 23:55:03,819 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:55:03,821 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:55:03,821 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:55:14,301 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:55:14,302 - ERROR - Could not get headers in request.
+2025-01-07 23:55:14,659 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:55:14,660 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:55:14,660 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:55:26,960 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:55:26,961 - ERROR - Could not get headers in request.
+2025-01-07 23:55:27,284 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:55:27,285 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:55:27,286 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:55:37,889 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:55:37,891 - ERROR - Could not get headers in request.
+2025-01-07 23:55:38,181 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:55:38,182 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:55:38,182 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:55:49,739 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:55:49,740 - ERROR - Could not get headers in request.
+2025-01-07 23:55:49,948 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:55:49,949 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:55:49,949 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:56:01,478 - ERROR - Request to https://api.bybit.com/v5/market/time failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/time
+2025-01-07 23:56:01,482 - ERROR - Could not get headers in request.
+2025-01-07 23:56:02,092 - ERROR - Request to https://api.bybit.com/v5/market/kline failed: 403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=1&limit=100
+2025-01-07 23:56:02,094 - WARNING - No kline data returned from BTCUSDT
+2025-01-07 23:56:02,094 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:56:23,260 - WARNING - Rate limit almost reached. Must sleep 60 seconds. Rate limit: 5000. Remaining requests 0
+2025-01-07 23:57:20,340 - WARNING - Rate limit almost reached. Must sleep 60 seconds. Rate limit: 5000. Remaining requests 0
+2025-01-07 23:58:22,623 - ERROR - An error occurred while executing the strategy: 'closePrice'
+2025-01-07 23:58:22,625 - WARNING - Last update was too old, trying again in 10 seconds.
+2025-01-07 23:58:33,648 - WARNING - Rate limit almost reached. Must sleep 60 seconds. Rate limit: 5000. Remaining requests 0
+2025-01-11 13:54:04 CST - trading_bot - INFO - Bybit API Base URL: https://api.bybit.com
+2025-01-11 13:54:06 CST - trading_bot - ERROR - Failed to calculate Aroon window must be an integer 0 or greater
+2025-01-11 13:54:06 CST - trading_bot - WARNING - Indicator series empty cannot determine trend
+2025-01-11 13:54:06 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-11 13:54:06 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-11 13:54:06 CST - trading_bot - WARNING - SMA data is empty cannot calculate MA trend
+2025-01-11 13:54:06 CST - trading_bot - INFO - {
+    "symbol": "BTCUSDT",
+    "interval": "5",
+    "price": 94140.3,
+    "timestamp": "2025-01-11T19:54:06.859101+00:00",
+    "supports_resistances": {
+        "Resistance (Dynamic)": [
+            94295.6,
+            0.09580227667989516
+        ],
+        "Support (Dynamic)": [
+            93840.7,
+            0.2668054096277357
+        ]
+    },
+    "pivot_points": {
+        "Pivot (Custom)": 94173.75,
+        "R1 (Custom)": 94207.4,
+        "S1 (Custom)": 94107.5,
+        "R2 (Custom)": 94273.65,
+        "S2 (Custom)": 94073.85,
+        "R3 (Custom)": 94307.29999999999,
+        "S3 (Custom)": 94007.6
+    },
+    "trend_ma": "downward",
+    "trend_rsi": "neutral",
+    "trend_macd": "upward",
+    "trend_adx": "downward",
+    "trend_obv": "upward",
+    "trend_aroon": "neutral",
+    "trend_wma": "neutral",
+    "trend_vpt": "upward"
+}
+2025-01-11 13:54:24 CST - trading_bot - INFO - Bybit API Base URL: https://api.bybit.com
+2025-01-11 13:54:28 CST - trading_bot - ERROR - Failed to calculate Aroon window must be an integer 0 or greater
+2025-01-11 13:54:28 CST - trading_bot - WARNING - Indicator series empty cannot determine trend
+2025-01-11 13:54:28 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-11 13:54:28 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-11 13:54:28 CST - trading_bot - WARNING - SMA data is empty cannot calculate MA trend
+2025-01-11 13:54:28 CST - trading_bot - INFO - {
+    "symbol": "BTCUSDT",
+    "interval": "5",
+    "price": 94149.0,
+    "timestamp": "2025-01-11T19:54:28.661014+00:00",
+    "supports_resistances": {
+        "Resistance (Dynamic)": [
+            94295.6,
+            0.09580227667989516
+        ],
+        "Support (Dynamic)": [
+            93840.7,
+            0.2668054096277357
+        ]
+    },
+    "pivot_points": {
+        "Pivot (Custom)": 94173.75,
+        "R1 (Custom)": 94207.4,
+        "S1 (Custom)": 94107.5,
+        "R2 (Custom)": 94273.65,
+        "S2 (Custom)": 94073.85,
+        "R3 (Custom)": 94307.29999999999,
+        "S3 (Custom)": 94007.6
+    },
+    "trend_ma": "downward",
+    "trend_rsi": "neutral",
+    "trend_macd": "upward",
+    "trend_adx": "downward",
+    "trend_obv": "upward",
+    "trend_aroon": "neutral",
+    "trend_wma": "neutral",
+    "trend_vpt": "upward"
+}
+2025-01-11 13:56:28 CST - trading_bot - INFO - Bybit API Base URL: https://api.bybit.com
+2025-01-11 13:56:32 CST - trading_bot - ERROR - Failed to calculate Aroon window must be an integer 0 or greater
+2025-01-11 13:56:32 CST - trading_bot - WARNING - Indicator series empty cannot determine trend
+2025-01-11 13:56:32 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-11 13:56:32 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-11 13:56:32 CST - trading_bot - WARNING - SMA data is empty cannot calculate MA trend
+2025-01-11 13:56:32 CST - trading_bot - INFO - {
+    "symbol": "BTCUSDT",
+    "interval": "5",
+    "price": 94211.9,
+    "timestamp": "2025-01-11T19:56:32.638568+00:00",
+    "supports_resistances": {
+        "Resistance (Dynamic)": [
+            94295.6,
+            0.09580227667989516
+        ],
+        "Support (Dynamic)": [
+            93840.7,
+            0.2668054096277357
+        ]
+    },
+    "pivot_points": {
+        "Pivot (Custom)": 94141.01,
+        "R1 (Custom)": 94183.81999999999,
+        "S1 (Custom)": 94058.31999999999,
+        "R2 (Custom)": 94266.51,
+        "S2 (Custom)": 94015.51,
+        "R3 (Custom)": 94309.31999999999,
+        "S3 (Custom)": 93932.81999999999
+    },
+    "trend_ma": "downward",
+    "trend_rsi": "neutral",
+    "trend_macd": "upward",
+    "trend_adx": "downward",
+    "trend_obv": "downward",
+    "trend_aroon": "neutral",
+    "trend_wma": "neutral",
+    "trend_vpt": "downward"
+}
