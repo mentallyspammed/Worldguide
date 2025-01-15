@@ -1,0 +1,116 @@
+To create custom crypto alerts in Telegram, you'll combine a real-time data source (like the Bybit V5 API via WebSockets), alert logic, and the Telegram Bot API.
+
+
+**1. Set up a Telegram Bot:**
+
+*   **Create a Bot:** Use the BotFather in Telegram ([https://t.me/BotFather](https://t.me/BotFather)) to create a new bot. You'll receive a bot token (keep this secret!). Store it securely as an environment variable.
+
+
+**2. Install the Python Telegram Bot Library:**
+ In your Termux environment:
+```bash
+pip install python-telegram-bot
+```
+
+
+
+**3. Python Script:**
+
+```python
+import os
+import json
+import telegram
+from bybit import WebSocket
+from telegram.ext import Updater, CommandHandler
+
+
+# Replace with your actual bot token from BotFather (use environment variables)
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")  
+bot = telegram.Bot(token=BOT_TOKEN)
+
+#Replace with your telegram user ID
+CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+
+
+def send_telegram_alert(message):
+     bot.send_message(chat_id=CHAT_ID, text=message)
+
+
+def handle_websocket_message(message):
+    data = json.loads(message)
+    #print(data) # This is for debugging, uncomment if needed
+
+
+
+      # Example: Alert if BTCUSDT price crosses above 32000
+    if data['topic'] == 'instrument_info.100ms.BTCUSDT' and data['type'] == 'snapshot':    
+                
+                last_price = float(data['data']['last_price_e4']) / 10000
+
+               #Customize your alert logic here
+                if last_price > 32000:
+                     alert_message=f"BTCUSDT price alert: Price crossed above  {last_price}"
+                     send_telegram_alert(alert_message)
+
+
+
+
+
+def start(update, context):
+    # Send a welcome message when the command /start is issued.
+     update.message.reply_text(' Crypto Alert Bot started!')
+     # Subscribe to Bybit websocket after /start command
+     ws = WebSocket(
+         ws_url="wss://stream-testnet.bybit.com/v5/private",
+            api_key=os.environ.get("BYBIT_API_KEY"),
+            api_secret=os.environ.get("BYBIT_API_SECRET")
+       )
+     ws.subscribe(
+          topic=["instrument_info.100ms.BTCUSDT"],
+         callback=handle_websocket_message,
+
+     )
+
+
+     ws.run()
+
+
+
+
+updater = Updater(BOT_TOKEN, use_context=True)
+
+# Get the dispatcher to register handlers
+dispatcher = updater.dispatcher
+
+# on different commands - answer in Telegram
+dispatcher.add_handler(CommandHandler("start", start))
+
+
+# Start the Bot
+updater.start_polling()
+
+
+# Run the bot until you press Ctrl-C or the process receives SIGINT,
+# SIGTERM or SIGABRT. This should be used most of the time, since
+# start_polling() is non-blocking and will stop the bot gracefully.
+updater.idle()
+
+
+
+```
+
+**4. Run the Script:**  Execute your Python script in your Termux environment.
+
+
+
+**Important Considerations:**
+
+* **Security:** Store your Telegram Bot token and Bybit API credentials as environment variables. **Never** hardcode these sensitive values directly in your script.
+* **Error Handling:** Implement robust error handling for network issues, API errors, and invalid data.  Use Bybit's error codes to provide targeted error messages. Include logging to help diagnose problems.
+* **Rate Limits:** Respect the rate limits of both the Telegram Bot API and the Bybit API to avoid getting your bot blocked. Implement strategies like exponential backoff to handle rate limiting gracefully.
+* **Background Execution:** Use tools like `tmux`, `screen`, or a process manager in Termux to keep the script running in the background, even if you disconnect from the terminal.
+* **Testing:** Always test your bot thoroughly with the Bybit testnet before using it with real funds.
+
+
+
+This comprehensive guide will help you set up a Telegram bot for custom crypto alerts securely and effectively in your Termux environment.  Remember to adapt the alert logic and Bybit API topics/symbols to match your specific trading strategies and requirements.  This is a starting point, and you can customize it further, potentially adding a user interface, multiple alert types and advanced configuration options.
