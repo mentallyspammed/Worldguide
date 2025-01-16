@@ -1,0 +1,143 @@
+//@version=4
+// @author=mentallyspammed
+// @description=Advanced VWAP Fibonacci Levels with Trend Direction and Multiple Indicators
+// @copyright=2025 mentallyspammed
+// Created: 2025-01-16 11:57:15 UTC
+
+study("Advanced VWAP Fibonacci Levels with Trend Direction, Ehlers Trendline, and Pivot Points", overlay=true, max_labels_count=500)
+
+// Input parameters with tooltips
+var g_fib = "=== Fibonacci Settings ==="
+fib_1_input = input(1.236, title="Fibonacci Level 1", group=g_fib)
+fib_2_input = input(1.382, title="Fibonacci Level 2", group=g_fib)
+fib_3_input = input(1.618, title="Fibonacci Level 3", group=g_fib)
+fib_4_input = input(2.000, title="Fibonacci Level 4", group=g_fib)
+fib_5_input = input(2.618, title="Fibonacci Level 5", group=g_fib)
+fib_6_input = input(3.618, title="Fibonacci Level 6", group=g_fib)
+
+var g_pivot = "=== Pivot Settings ==="
+pivot_high_lookback = input(5, title="Pivot High Lookback", group=g_pivot, minval=1, maxval=50)
+pivot_low_lookback = input(5, title="Pivot Low Lookback", group=g_pivot, minval=1, maxval=50)
+
+var g_indicators = "=== Indicator Settings ==="
+rsi_period = input(14, title="RSI Period", group=g_indicators, minval=1)
+adx_period = input(14, title="ADX Period", group=g_indicators, minval=1)
+sma_period = input(50, title="SMA Period", group=g_indicators, minval=1)
+ema_period = input(20, title="EMA Period", group=g_indicators, minval=1)
+ehlers_alpha = input(0.07, title="Ehlers Alpha", group=g_indicators, step=0.01)
+
+var g_display = "=== Display Settings ==="
+show_labels = input(true, title="Show Level Labels", group=g_display)
+show_prices = input(true, title="Show Prices", group=g_display)
+label_offset = input(5, title="Label Offset", group=g_display, minval=1)
+
+// Function to calculate trend strength
+calculateTrendStrength(adx, plus_di, minus_di) =>
+    abs(plus_di - minus_di) * (adx / 100)
+
+// Calculate VWAP with volume profile
+var float vwap = na
+var float cum_vol = 0.0
+var float cum_vol_price = 0.0
+
+if (barstate.isfirst)
+    vwap := na
+    cum_vol := 0.0
+    cum_vol_price := 0.0
+    
+cum_vol := cum_vol + volume
+cum_vol_price := cum_vol_price + close * volume
+vwap := cum_vol_price / cum_vol
+
+// Enhanced weighted VWAP calculation with adaptive weights
+var float weighted_vwap = na
+float weight = volume / sma(volume, 20)  // Adaptive weight based on relative volume
+if (na(weighted_vwap))
+    weighted_vwap := vwap
+else
+    weighted_vwap := (weighted_vwap[1] * (1 - weight) + close * weight)
+
+// Calculate Fibonacci levels with dynamic adjustment
+float base_level = weighted_vwap
+fib_levels = array.new_float(7)
+array.set(fib_levels, 0, base_level)
+array.set(fib_levels, 1, base_level * fib_1_input)
+array.set(fib_levels, 2, base_level * fib_2_input)
+array.set(fib_levels, 3, base_level * fib_3_input)
+array.set(fib_levels, 4, base_level * fib_4_input)
+array.set(fib_levels, 5, base_level * fib_5_input)
+array.set(fib_levels, 6, base_level * fib_6_input)
+
+// Enhanced trend detection
+sma = sma(close, sma_period)
+ema = ema(close, ema_period)
+rsi = rsi(close, rsi_period)
+[adx, plus_di, minus_di] = dmi(adx_period)
+
+// Advanced trend strength calculation
+trend_strength = calculateTrendStrength(adx, plus_di, minus_di)
+strong_trend = adx > 25 and trend_strength > 15
+
+trend_up = (close > sma) and (close > ema) and (rsi > 50) and strong_trend and (plus_di > minus_di)
+trend_down = (close < sma) and (close < ema) and (rsi < 50) and strong_trend and (minus_di > plus_di)
+
+// Improved Ehlers Trendline
+var float ehlers_trendline = na
+ehlers_trendline := (ehlers_alpha * close) + ((1 - ehlers_alpha) * nz(ehlers_trendline[1]))
+
+// Plot levels with dynamic colors
+var colors = array.new_color(7)
+array.set(colors, 0, color.new(color.red, 0))  // Base
+array.set(colors, 1, color.new(color.orange, 0))  // Level 1
+array.set(colors, 2, color.new(color.yellow, 0))  // Level 2
+array.set(colors, 3, color.new(color.green, 0))  // Level 3
+array.set(colors, 4, color.new(color.blue, 0))  // Level 4
+array.set(colors, 5, color.new(color.indigo, 0))  // Level 5
+array.set(colors, 6, color.new(color.violet, 0))  // Level 6
+
+if (show_labels)
+    for i = 0 to 6
+        level_price = array.get(fib_levels, i)
+        if (show_prices)
+            label.new(
+                bar_index, level_price, 
+                text=str.format("Fib {0}: {1}", tostring(i), tostring(level_price, "#.##")),
+                color=array.get(colors, i),
+                textcolor=color.white,
+                style=label.style_label_left,
+                xloc=xloc.bar_index
+                )
+
+// Plot main indicators
+plot(weighted_vwap, title="Weighted VWAP", color=color.blue, linewidth=2)
+plot(ehlers_trendline, title="Ehlers Trendline", color=color.yellow, linewidth=2)
+
+// Plot trend signals
+plotshape(series=trend_up, title="Uptrend", location=location.top, color=color.green, style=shape.triangleup, size=size.small)
+plotshape(series=trend_down, title="Downtrend", location=location.bottom, color=color.red, style=shape.triangledown, size=size.small)
+
+// Enhanced pivot points with confirmation
+pivot_high = pivothigh(high, pivot_high_lookback, pivot_high_lookback)
+pivot_low = pivotlow(low, pivot_low_lookback, pivot_low_lookback)
+
+// Plot confirmed pivot points
+plotshape(series=pivot_high and trend_down, title="Pivot High", location=location.abovebar, color=color.fuchsia, style=shape.triangledown, size=size.tiny)
+plotshape(series=pivot_low and trend_up, title="Pivot Low", location=location.belowbar, color=color.aqua, style=shape.triangleup, size=size.tiny)
+
+// Add table with key information
+var table info_table = table.new(position.top_right, 2, 5, bgcolor=color.new(color.black, 80))
+if (barstate.islast)
+    table.cell(info_table, 0, 0, text="Trend Direction", text_color=color.white)
+    table.cell(info_table, 1, 0, text=trend_up ? "UP" : trend_down ? "DOWN" : "NEUTRAL", 
+               text_color=trend_up ? color.green : trend_down ? color.red : color.gray)
+    table.cell(info_table, 0, 1, text="ADX Strength", text_color=color.white)
+    table.cell(info_table, 1, 1, text=tostring(adx, "#.##"), 
+               text_color=adx > 25 ? color.green : color.gray)
+    table.cell(info_table, 0, 2, text="RSI", text_color=color.white)
+    table.cell(info_table, 1, 2, text=tostring(rsi, "#.##"),
+               text_color=rsi > 70 ? color.red : rsi < 30 ? color.green : color.gray)
+
+// Alert conditions with enhanced messages
+alertcondition(cross(close, weighted_vwap), title="VWAP Cross", message="Price crossed VWAP at {{close}}")
+alertcondition(trend_up and not trend_up[1], title="Trend Change Up", message="Trend changed to upward at {{close}}")
+alertcondition(trend_down and not trend_down[1], title="Trend Change Down", message="Trend changed to downward at {{close}}")
