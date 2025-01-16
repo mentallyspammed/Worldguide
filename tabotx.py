@@ -20,12 +20,24 @@ LOG_DIR = "botlogs"  # Directory to store log files
 ST_LOUIS_TZ = ZoneInfo("America/Chicago")  # Time zone for timestamps
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", 3))  # Maximum API request retries
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", 5))  # Delay between retries (seconds)
-VALID_INTERVALS = ["1", "3", "5", "15", "30", "60", "120", "240", "D", "W"]  # Valid chart intervals
+VALID_INTERVALS = [
+    "1",
+    "3",
+    "5",
+    "15",
+    "30",
+    "60",
+    "120",
+    "240",
+    "D",
+    "W",
+]  # Valid chart intervals
 RETRY_ERROR_CODES = [429, 500, 502, 503, 504]  # HTTP error codes that trigger retries
 SUPPORT_RESISTANCE_WINDOW = 14  # Lookback window for identifying S/R levels
-CLUSTER_SENSITIVITY = 0.05      # Sensitivity for filtering S/R levels by distance to price
+CLUSTER_SENSITIVITY = 0.05  # Sensitivity for filtering S/R levels by distance to price
 # Higher timeframes for multi-timeframe analysis (you can add more)
 HIGHER_TIMEFRAMES = ["60", "240", "D"]
+
 
 # --- Configuration ---
 class Config:
@@ -41,6 +53,7 @@ class Config:
             raise ValueError(
                 "API keys not set. Please set BYBIT_API_KEY and BYBIT_API_SECRET in your .env file."
             )
+
 
 # --- Bybit API Client ---
 class Bybit:
@@ -65,7 +78,9 @@ class Bybit:
             try:
                 params = params or {}
                 params["api_key"] = self.config.api_key
-                params["timestamp"] = str(int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000))
+                params["timestamp"] = str(
+                    int(datetime.now(ST_LOUIS_TZ).timestamp() * 1000)
+                )
                 params["sign"] = self._generate_signature(params)
 
                 url = f"{self.config.base_url}{endpoint}"
@@ -115,21 +130,39 @@ class Bybit:
 
         return {"retCode": -1, "retMsg": "Max retries exceeded"}
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """Fetches klines (candlestick data) for a given symbol and interval."""
         endpoint = "/v5/market/kline"
-        params = {"symbol": symbol, "interval": interval, "limit": limit, "category": "linear"}
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+            "category": "linear",
+        }
         response = self._request("GET", endpoint, params)
 
         if response.get("retCode") == 0 and response.get("result"):
             klines = response["result"]["list"]
             df = pd.DataFrame(
                 klines,
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
             df["start_time"] = pd.to_datetime(df["start_time"], unit="ms")
             df = df.astype(
-                {col: float for col in ["open", "high", "low", "close", "volume", "turnover"]}
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
             )
             return df
         else:
@@ -161,6 +194,7 @@ class Bybit:
             )
             return None
 
+
 # --- Technical Analysis Module ---
 class TechnicalAnalyzer:
     """Performs technical analysis on market data."""
@@ -184,14 +218,16 @@ class TechnicalAnalyzer:
     def calculate_momentum(self, window: int = 14) -> pd.Series:
         """Calculates Momentum."""
         return self.df["close"].diff(window)
-    
+
     def calculate_fibonacci_retracement(
         self, high: float, low: float
     ) -> Dict[str, float]:
         """Calculates Fibonacci retracement levels."""
         diff = high - low
         if diff == 0:
-            self.logger.warning("Cannot calculate Fibonacci: high and low are the same.")
+            self.logger.warning(
+                "Cannot calculate Fibonacci: high and low are the same."
+            )
             return {}
 
         fib_levels = {
@@ -207,11 +243,20 @@ class TechnicalAnalyzer:
 
         # Store Fibonacci levels, dynamically assigning labels based on current price
         current_price = self.df["close"].iloc[-1]
-        self.levels.update({f"Support ({label})" if value <= current_price else f"Resistance ({label})": value for label, value in fib_levels.items()})
-        
+        self.levels.update(
+            {
+                f"Support ({label})"
+                if value <= current_price
+                else f"Resistance ({label})": value
+                for label, value in fib_levels.items()
+            }
+        )
+
         return fib_levels
 
-    def calculate_pivot_points(self, high: float, low: float, close: float) -> Dict[str, float]:
+    def calculate_pivot_points(
+        self, high: float, low: float, close: float
+    ) -> Dict[str, float]:
         """Calculates pivot points."""
         pivot = (high + low + close) / 3
         r1 = 2 * pivot - low
@@ -234,18 +279,22 @@ class TechnicalAnalyzer:
         self.levels.update(pivot_levels)
         return pivot_levels
 
-    def kmeans_clustering(self, data: np.ndarray, n_clusters: int, max_iterations: int = 100) -> Tuple[np.ndarray, np.ndarray]:
+    def kmeans_clustering(
+        self, data: np.ndarray, n_clusters: int, max_iterations: int = 100
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Performs K-Means clustering without using scikit-learn."""
         # Initialize centroids randomly
         centroids = data[np.random.choice(data.shape[0], n_clusters, replace=False)]
 
         for _ in range(max_iterations):
             # Assign points to the nearest centroid
-            distances = np.sqrt(((data - centroids[:, np.newaxis])**2).sum(axis=2))
+            distances = np.sqrt(((data - centroids[:, np.newaxis]) ** 2).sum(axis=2))
             labels = np.argmin(distances, axis=0)
 
             # Update centroids
-            new_centroids = np.array([data[labels == i].mean(axis=0) for i in range(n_clusters)])
+            new_centroids = np.array(
+                [data[labels == i].mean(axis=0) for i in range(n_clusters)]
+            )
 
             # Check for convergence
             if np.all(centroids == new_centroids):
@@ -254,16 +303,30 @@ class TechnicalAnalyzer:
             centroids = new_centroids
 
         return centroids, labels
-    
-    def identify_support_resistance(self, window: int = SUPPORT_RESISTANCE_WINDOW, sensitivity: float = CLUSTER_SENSITIVITY) -> Dict[str, Tuple[float, float]]:
+
+    def identify_support_resistance(
+        self,
+        window: int = SUPPORT_RESISTANCE_WINDOW,
+        sensitivity: float = CLUSTER_SENSITIVITY,
+    ) -> Dict[str, Tuple[float, float]]:
         """Identifies support and resistance levels based on price action, clustering, and volume."""
-        data = self.df['close'].values
-        volumes = self.df['volume'].values
+        data = self.df["close"].values
+        volumes = self.df["volume"].values
         levels = {}
 
         # Find local maxima and minima
-        maxima_indices = [i for i in range(window, len(data) - window) if all(data[i] >= data[i - j] for j in range(1, window + 1)) and all(data[i] >= data[i + j] for j in range(1, window + 1))]
-        minima_indices = [i for i in range(window, len(data) - window) if all(data[i] <= data[i - j] for j in range(1, window + 1)) and all(data[i] <= data[i + j] for j in range(1, window + 1))]
+        maxima_indices = [
+            i
+            for i in range(window, len(data) - window)
+            if all(data[i] >= data[i - j] for j in range(1, window + 1))
+            and all(data[i] >= data[i + j] for j in range(1, window + 1))
+        ]
+        minima_indices = [
+            i
+            for i in range(window, len(data) - window)
+            if all(data[i] <= data[i - j] for j in range(1, window + 1))
+            and all(data[i] <= data[i + j] for j in range(1, window + 1))
+        ]
         maxima = data[maxima_indices]
         minima = data[minima_indices]
 
@@ -271,7 +334,9 @@ class TechnicalAnalyzer:
         all_points = np.concatenate((maxima, minima)).reshape(-1, 1)
 
         if len(all_points) < 2:
-            self.logger.warning("Not enough data points to identify support/resistance levels.")
+            self.logger.warning(
+                "Not enough data points to identify support/resistance levels."
+            )
             return levels
 
         # Use K-Means clustering
@@ -285,7 +350,11 @@ class TechnicalAnalyzer:
             price_diff_ratio = abs(current_price - center) / current_price
             if price_diff_ratio <= sensitivity:
                 # Calculate average volume at this level
-                level_indices = [idx for j, idx in enumerate(maxima_indices + minima_indices) if cluster_labels[j] == i]
+                level_indices = [
+                    idx
+                    for j, idx in enumerate(maxima_indices + minima_indices)
+                    if cluster_labels[j] == i
+                ]
                 avg_volume = np.mean(volumes[level_indices]) if level_indices else 0
 
                 level_type = "Support" if center < current_price else "Resistance"
@@ -295,7 +364,7 @@ class TechnicalAnalyzer:
         self.levels.update(levels)
 
         return levels
-    
+
     def find_nearest_levels(
         self, current_price: float
     ) -> Tuple[List[Tuple[str, float, float]], List[Tuple[str, float, float]]]:
@@ -310,11 +379,11 @@ class TechnicalAnalyzer:
                     supports.append((label, value, vol))
                 elif value > current_price:
                     resistances.append((label, value, vol))
-            elif isinstance(level_data, float): # if key has no volume data
+            elif isinstance(level_data, float):  # if key has no volume data
                 if level_data < current_price:
-                    supports.append((label, level_data, 0.0)) # assign volume as 0.0
+                    supports.append((label, level_data, 0.0))  # assign volume as 0.0
                 elif level_data > current_price:
-                    resistances.append((label, level_data, 0.0)) # assign volume as 0.0
+                    resistances.append((label, level_data, 0.0))  # assign volume as 0.0
 
         nearest_supports = sorted(supports, key=lambda x: x[1], reverse=True)[:3]
         nearest_resistances = sorted(resistances, key=lambda x: x[1])[:3]
@@ -404,12 +473,16 @@ class TechnicalAnalyzer:
         if closest_support is None:
             return "upward"
 
-        if abs(closest_resistance[1] - current_price) < abs(closest_support[1] - current_price):
+        if abs(closest_resistance[1] - current_price) < abs(
+            closest_support[1] - current_price
+        ):
             return "upward"
         else:
             return "downward"
-    
-    def analyze_higher_timeframes(self, higher_timeframes: List[str]) -> Dict[str, Dict[str, float]]:
+
+    def analyze_higher_timeframes(
+        self, higher_timeframes: List[str]
+    ) -> Dict[str, Dict[str, float]]:
         """Analyzes support/resistance on higher timeframes."""
         higher_tf_levels = {}
         for tf in higher_timeframes:
@@ -433,7 +506,7 @@ class TechnicalAnalyzer:
         # Calculate support/resistance levels
         self.calculate_fibonacci_retracement(high, low)
         self.calculate_pivot_points(high, low, close)
-        self.identify_support_resistance() # New method for dynamic S/R
+        self.identify_support_resistance()  # New method for dynamic S/R
         nearest_supports, nearest_resistances = self.find_nearest_levels(current_price)
 
         # Analyze higher timeframes
@@ -451,24 +524,30 @@ class TechnicalAnalyzer:
         )
 
         # Log the analysis results
-        self.logger.info(f"{Fore.YELLOW}Current Price ({self.interval}):{Fore.GREEN} {current_price:.2f}")
+        self.logger.info(
+            f"{Fore.YELLOW}Current Price ({self.interval}):{Fore.GREEN} {current_price:.2f}"
+        )
         self.logger.info(f"{Fore.YELLOW}Trend:{Fore.CYAN} {trend}")
 
         if atr is not None:
             self.logger.info(f"{Fore.YELLOW}ATR:{Fore.MAGENTA} {atr.iloc[-1]:.2f}")
         else:
             self.logger.info(f"{Fore.YELLOW}ATR:{Fore.MAGENTA} None")
-        
+
         # Logging calculated levels for the current timeframe
         self.logger.info(f"{Fore.YELLOW}Support/Resistance Levels ({self.interval}):")
         for level, level_data in self.levels.items():
             if isinstance(level_data, tuple) and len(level_data) == 2:
                 value, volume = level_data
                 label_color = Fore.BLUE if "Support" in level else Fore.RED
-                self.logger.info(f"{label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}")
-            elif isinstance(level_data, float): # for levels without volume
+                self.logger.info(
+                    f"{label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}"
+                )
+            elif isinstance(level_data, float):  # for levels without volume
                 label_color = Fore.BLUE if "Support" in level else Fore.RED
-                self.logger.info(f"{label_color} {level}: {Fore.CYAN} {level_data:.2f} {Fore.MAGENTA}(Vol: 0.00){Style.RESET_ALL}")
+                self.logger.info(
+                    f"{label_color} {level}: {Fore.CYAN} {level_data:.2f} {Fore.MAGENTA}(Vol: 0.00){Style.RESET_ALL}"
+                )
 
         # Log higher timeframe levels
         self.logger.info(f"{Fore.YELLOW}Higher Timeframe Levels:")
@@ -478,22 +557,33 @@ class TechnicalAnalyzer:
                 if isinstance(level_data, tuple) and len(level_data) == 2:
                     value, volume = level_data
                     label_color = Fore.BLUE if "Support" in level else Fore.RED
-                    self.logger.info(f"    {label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}")
+                    self.logger.info(
+                        f"    {label_color} {level}: {Fore.CYAN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f}){Style.RESET_ALL}"
+                    )
                 elif isinstance(level_data, float):  # Handle levels without volume data
                     label_color = Fore.BLUE if "Support" in level else Fore.RED
-                    self.logger.info(f"    {label_color} {level}: {Fore.CYAN} {level_data:.2f} {Fore.MAGENTA}(Vol: 0.00){Style.RESET_ALL}")
+                    self.logger.info(
+                        f"    {label_color} {level}: {Fore.CYAN} {level_data:.2f} {Fore.MAGENTA}(Vol: 0.00){Style.RESET_ALL}"
+                    )
                 else:
                     self.logger.warning(f"Skipping invalid level value: {level_data}")
 
         self.logger.info(f"{Fore.YELLOW}Nearest Support Levels:")
         for level, value, volume in nearest_supports:
-            self.logger.info(f"{Fore.BLUE} {level}: {Fore.GREEN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})")
+            self.logger.info(
+                f"{Fore.BLUE} {level}: {Fore.GREEN} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})"
+            )
 
         self.logger.info(f"{Fore.YELLOW}Nearest Resistance Levels:")
         for level, value, volume in nearest_resistances:
-            self.logger.info(f"{Fore.RED} {level}: {Fore.BLUE} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})")
+            self.logger.info(
+                f"{Fore.RED} {level}: {Fore.BLUE} {value:.2f} {Fore.MAGENTA}(Vol: {volume:.2f})"
+            )
 
-        self.logger.info(f"{Fore.YELLOW}Prediction:{Fore.MAGENTA} {next_level_prediction}")
+        self.logger.info(
+            f"{Fore.YELLOW}Prediction:{Fore.MAGENTA} {next_level_prediction}"
+        )
+
 
 # --- Logging Setup ---
 def setup_logger(name: str) -> logging.Logger:
@@ -506,16 +596,21 @@ def setup_logger(name: str) -> logging.Logger:
 
     os.makedirs(LOG_DIR, exist_ok=True)
     file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(file_handler)
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(
-        logging.Formatter(f"{Fore.BLUE}%(asctime)s{Fore.RESET} - %(levelname)s - %(message)s")
+        logging.Formatter(
+            f"{Fore.BLUE}%(asctime)s{Fore.RESET} - %(levelname)s - %(message)s"
+        )
     )
     logger.addHandler(stream_handler)
 
     return logger
+
 
 # --- Main Function ---
 def main():
@@ -542,7 +637,9 @@ def main():
 
             analyzer = TechnicalAnalyzer(symbol, interval, logger)
             if analyzer.df.empty:
-                logger.error(f"{Fore.RED}Failed to fetch klines for {symbol} ({interval}).")
+                logger.error(
+                    f"{Fore.RED}Failed to fetch klines for {symbol} ({interval})."
+                )
                 time.sleep(30)
                 continue
             analyzer.analyze(current_price)
@@ -551,6 +648,7 @@ def main():
 
     except Exception as e:
         logger.exception(f"{Fore.RED}An error occurred: {e}")
+
 
 if __name__ == "__main__":
     main()
