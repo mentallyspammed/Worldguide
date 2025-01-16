@@ -32,20 +32,27 @@ SLOW_MA_WINDOW = 26
 load_dotenv()
 API_KEY = os.getenv("BYBIT_API_KEY")
 API_SECRET = os.getenv("BYBIT_API_SECRET")
-TESTNET = os.getenv("BYBIT_TESTNET", 'False').lower() in ('true', '1', 't')
+TESTNET = os.getenv("BYBIT_TESTNET", "False").lower() in ("true", "1", "t")
 SYMBOL = os.getenv("SYMBOL", "BTCUSDT")
 INTERVAL = os.getenv("INTERVAL", "5")
 
 # Logging setup
 os.makedirs(LOG_DIR, exist_ok=True)
-log_file = os.path.join(LOG_DIR, f"trading_bot_{datetime.now(ST_LOUIS_TZ).strftime('%Y%m%d')}.log")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",
-                    handlers=[logging.FileHandler(log_file), logging.StreamHandler()])
+log_file = os.path.join(
+    LOG_DIR, f"trading_bot_{datetime.now(ST_LOUIS_TZ).strftime('%Y%m%d')}.log"
+)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
+)
 logger = logging.getLogger("TradingAnalyzer")
 
 
 # --- Helper Functions ---
-def calculate_fibonacci_pivots(high: float, low: float, close: float) -> Dict[str, float]:
+def calculate_fibonacci_pivots(
+    high: float, low: float, close: float
+) -> Dict[str, float]:
     """Calculates Fibonacci pivot points."""
     pivot = (high + low + close) / 3
     range_val = high - low
@@ -67,7 +74,9 @@ class BybitAPI:
         self.api_secret = API_SECRET
         self.testnet = TESTNET
         try:
-            self.session = HTTP(api_key=self.api_key, api_secret=self.api_secret, testnet=self.testnet)
+            self.session = HTTP(
+                api_key=self.api_key, api_secret=self.api_secret, testnet=self.testnet
+            )
         except Exception as e:
             self.logger.error(f"Failed to initialize Bybit API session: {e}")
             raise
@@ -79,22 +88,45 @@ class BybitAPI:
                 self.logger.error(f"Bybit API Error: {response['retMsg']}")
                 return None
             ticker_info = response.get("result", {}).get("list", [])[0]
-            return float(ticker_info["lastPrice"]) if "lastPrice" in ticker_info else None
+            return (
+                float(ticker_info["lastPrice"]) if "lastPrice" in ticker_info else None
+            )
         except Exception as e:
             self.logger.error(f"Error fetching current price: {e}")
             return None
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         try:
-            response = self.session.get_kline(category="linear", symbol=symbol, interval=interval, limit=limit)
+            response = self.session.get_kline(
+                category="linear", symbol=symbol, interval=interval, limit=limit
+            )
             if response["retCode"] != 0:
                 self.logger.error(f"Bybit API Error: {response['retMsg']}")
                 return pd.DataFrame()
-            df = pd.DataFrame(response["result"]["list"],
-                              columns=["start_time", "open", "high", "low", "close", "volume", "turnover"])
-            df["start_time"] = pd.to_datetime(pd.to_numeric(df["start_time"]), unit="ms", utc=True)
+            df = pd.DataFrame(
+                response["result"]["list"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
+            )
+            df["start_time"] = pd.to_datetime(
+                pd.to_numeric(df["start_time"]), unit="ms", utc=True
+            )
             df.sort_values("start_time", inplace=True)
-            return df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            return df.astype(
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
+            )
         except Exception as e:
             self.logger.error(f"Error fetching klines: {e}")
             return pd.DataFrame()
@@ -109,7 +141,9 @@ class TradingAnalyzer:
         self.df = self.fetch_and_prepare_data()
 
         if self.df.empty:
-            raise ValueError("Failed to fetch data. Check your API key, symbol, and interval.")
+            raise ValueError(
+                "Failed to fetch data. Check your API key, symbol, and interval."
+            )
 
         self._add_technical_indicators()
 
@@ -122,9 +156,15 @@ class TradingAnalyzer:
     def _add_technical_indicators(self):
         try:
             self.df["RSI"] = RSIIndicator(self.df["close"], window=RSI_WINDOW).rsi()
-            self.df["ADX"] = ADXIndicator(self.df["high"], self.df["low"], self.df["close"]).adx()
-            self.df["fast_ma"] = EMAIndicator(self.df["close"], window=FAST_MA_WINDOW).ema_indicator()
-            self.df["slow_ma"] = EMAIndicator(self.df["close"], window=SLOW_MA_WINDOW).ema_indicator()
+            self.df["ADX"] = ADXIndicator(
+                self.df["high"], self.df["low"], self.df["close"]
+            ).adx()
+            self.df["fast_ma"] = EMAIndicator(
+                self.df["close"], window=FAST_MA_WINDOW
+            ).ema_indicator()
+            self.df["slow_ma"] = EMAIndicator(
+                self.df["close"], window=SLOW_MA_WINDOW
+            ).ema_indicator()
             self.df["MACD"] = MACD(self.df["close"]).macd()
             bb_indicator = BollingerBands(close=self.df["close"])
             self.df["bb_high"] = bb_indicator.bollinger_hband()
@@ -155,7 +195,9 @@ class TradingAnalyzer:
         fib_pivots = calculate_fibonacci_pivots(high, low, close)
 
         # Sort Fibonacci levels by proximity to the current price
-        sorted_fibs = sorted(fib_pivots.items(), key=lambda x: abs(current_price - x[1]))
+        sorted_fibs = sorted(
+            fib_pivots.items(), key=lambda x: abs(current_price - x[1])
+        )
         nearest_fibs = sorted_fibs[:5]  # Nearest 5 Fibonacci levels
         closest_fib = nearest_fibs[0]  # Highlight the closest
 
@@ -166,17 +208,21 @@ class TradingAnalyzer:
             "closest_fib": closest_fib,
             "position": "NONE",
             "entry_price": None,
-            "take_profit": None
+            "take_profit": None,
         }
 
         if trend == "bullish" and self.df["RSI"].iloc[-1] < RSI_OVERSOLD:
             signal["position"] = "LONG"
             signal["entry_price"] = current_price
-            signal["take_profit"] = closest_fib[1] * 1.01  # Example take profit: 1% above closest fib
+            signal["take_profit"] = (
+                closest_fib[1] * 1.01
+            )  # Example take profit: 1% above closest fib
         elif trend == "bearish" and self.df["RSI"].iloc[-1] > RSI_OVERBOUGHT:
             signal["position"] = "SHORT"
             signal["entry_price"] = current_price
-            signal["take_profit"] = closest_fib[1] * 0.99  # Example take profit: 1% below closest fib
+            signal["take_profit"] = (
+                closest_fib[1] * 0.99
+            )  # Example take profit: 1% below closest fib
 
         return signal
 
@@ -189,8 +235,12 @@ class TradingAnalyzer:
 
         print(f"{neon_cyan}=" * 60)
         print(f"{neon_magenta}Trading Signal Analysis{Style.RESET_ALL}")
-        print(f"{neon_yellow}Current Price: {signal['current_price']:.8f}{Style.RESET_ALL}")
-        print(f"{neon_cyan}Trend Direction: {signal['trend'].capitalize()}{Style.RESET_ALL}")
+        print(
+            f"{neon_yellow}Current Price: {signal['current_price']:.8f}{Style.RESET_ALL}"
+        )
+        print(
+            f"{neon_cyan}Trend Direction: {signal['trend'].capitalize()}{Style.RESET_ALL}"
+        )
         print(f"\n{neon_magenta}Nearest Fibonacci Levels:{Style.RESET_ALL}")
         for level, value in signal["nearest_fibs"]:
             highlight = Fore.GREEN if (level, value) == signal["closest_fib"] else ""
@@ -198,8 +248,12 @@ class TradingAnalyzer:
 
         if signal["position"] != "NONE":
             print(f"\n{neon_green}Position: {signal['position']}{Style.RESET_ALL}")
-            print(f"{neon_cyan}Entry Price: {signal['entry_price']:.8f}{Style.RESET_ALL}")
-            print(f"{neon_cyan}Take Profit: {signal['take_profit']:.8f}{Style.RESET_ALL}")
+            print(
+                f"{neon_cyan}Entry Price: {signal['entry_price']:.8f}{Style.RESET_ALL}"
+            )
+            print(
+                f"{neon_cyan}Take Profit: {signal['take_profit']:.8f}{Style.RESET_ALL}"
+            )
         else:
             print(f"{neon_red}No trade signal at this time.{Style.RESET_ALL}")
         print(f"{neon_cyan}=" * 60)
