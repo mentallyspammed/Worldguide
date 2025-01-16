@@ -189,17 +189,17 @@ class TradingAnalyzer:
 
         print(f"{neon_cyan}=" * 60)
         print(f"{neon_magenta}Trading Signal Analysis{Style.RESET_ALL}")
-        print(f"{neon_yellow}Current Price: {signal['current_price']:.2f}{Style.RESET_ALL}")
+        print(f"{neon_yellow}Current Price: {signal['current_price']:.8f}{Style.RESET_ALL}")
         print(f"{neon_cyan}Trend Direction: {signal['trend'].capitalize()}{Style.RESET_ALL}")
         print(f"\n{neon_magenta}Nearest Fibonacci Levels:{Style.RESET_ALL}")
         for level, value in signal["nearest_fibs"]:
             highlight = Fore.GREEN if (level, value) == signal["closest_fib"] else ""
-            print(f"{highlight}{level}: {value:.2f}{Style.RESET_ALL}")
+            print(f"{highlight}{level}: {value:.8f}{Style.RESET_ALL}")
 
         if signal["position"] != "NONE":
             print(f"\n{neon_green}Position: {signal['position']}{Style.RESET_ALL}")
-            print(f"{neon_cyan}Entry Price: {signal['entry_price']:.2f}{Style.RESET_ALL}")
-            print(f"{neon_cyan}Take Profit: {signal['take_profit']:.2f}{Style.RESET_ALL}")
+            print(f"{neon_cyan}Entry Price: {signal['entry_price']:.8f}{Style.RESET_ALL}")
+            print(f"{neon_cyan}Take Profit: {signal['take_profit']:.8f}{Style.RESET_ALL}")
         else:
             print(f"{neon_red}No trade signal at this time.{Style.RESET_ALL}")
         print(f"{neon_cyan}=" * 60)
