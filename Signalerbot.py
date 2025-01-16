@@ -48,6 +48,7 @@ TESTNET = bool(os.getenv("BYBIT_TESTNET", False))
 SYMBOL = os.getenv("SYMBOL", "BTCUSDT")
 INTERVAL = os.getenv("INTERVAL", "5")
 
+
 class BybitAPI:
     """A class to interact with the Bybit API using pybit."""
 
@@ -59,18 +60,14 @@ class BybitAPI:
         self.testnet = TESTNET
 
         self.session = HTTP(
-            api_key=self.api_key,
-            api_secret=self.api_secret,
-            testnet=self.testnet
+            api_key=self.api_key, api_secret=self.api_secret, testnet=self.testnet
         )
 
     @retry(exceptions=(InvalidRequestError), tries=3, delay=2, backoff=2)
     def fetch_current_price(self) -> Optional[float]:
         """Fetches the current real-time price of the symbol using pybit."""
         try:
-            response = self.session.get_tickers(
-                category="linear", symbol=SYMBOL
-            )
+            response = self.session.get_tickers(category="linear", symbol=SYMBOL)
 
             if response["retCode"] != 0:
                 self.logger.error(f"Bybit API Error: {response['retMsg']}")
@@ -108,7 +105,9 @@ class BybitAPI:
             self.logger.error(f"Error fetching order book: {e}")
             return {}
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """
         Fetches kline data from Bybit API for Unified Trading Account (UTA)
         (specifically for USDT Perpetual contracts) using pybit, ensures it's sorted by time,
@@ -143,7 +142,9 @@ class BybitAPI:
                 ],
             )
 
-            df["start_time"] = pd.to_datetime(pd.to_numeric(df["start_time"]), unit="ms", utc=True)
+            df["start_time"] = pd.to_datetime(
+                pd.to_numeric(df["start_time"]), unit="ms", utc=True
+            )
             df.sort_values("start_time", inplace=True)
             df = df.astype(
                 {
@@ -158,6 +159,7 @@ class BybitAPI:
             self.logger.error(f"Error fetching klines: {e}")
             return pd.DataFrame()
 
+
 class TradingAnalyzer:
     """A class for performing trading analysis."""
 
@@ -169,7 +171,9 @@ class TradingAnalyzer:
         self.interval = interval
         self.df = self.fetch_and_prepare_data()
         if self.df.empty:
-            raise ValueError("Failed to fetch data. Check your API key, symbol, and interval.")
+            raise ValueError(
+                "Failed to fetch data. Check your API key, symbol, and interval."
+            )
         self._add_technical_indicators()
 
     def calculate_fibonacci_pivots(self, high, low, close):
@@ -192,21 +196,24 @@ class TradingAnalyzer:
 
     def calculate_supertrend(self, df, atr_period=10, multiplier=3):
         """Calculates the Supertrend indicator."""
-        hl2 = (df['high'] + df['low']) / 2
-        atr = df['high'].rolling(window=atr_period).max() - df['low'].rolling(window=atr_period).min()
+        hl2 = (df["high"] + df["low"]) / 2
+        atr = (
+            df["high"].rolling(window=atr_period).max()
+            - df["low"].rolling(window=atr_period).min()
+        )
         atr = atr.rolling(window=atr_period).mean()
-        df['upperband'] = hl2 + (multiplier * atr)
-        df['lowerband'] = hl2 - (multiplier * atr)
-        df['supertrend'] = np.nan
-        df.loc[0, 'supertrend'] = df.loc[0, 'upperband']
+        df["upperband"] = hl2 + (multiplier * atr)
+        df["lowerband"] = hl2 - (multiplier * atr)
+        df["supertrend"] = np.nan
+        df.loc[0, "supertrend"] = df.loc[0, "upperband"]
 
         for i in range(1, len(df)):
-            if df['close'][i] > df.loc[i-1, 'upperband']:
-                df.loc[i, 'supertrend'] = df.loc[i, 'upperband']
-            elif df['close'][i] < df.loc[i-1, 'lowerband']:
-                df.loc[i, 'supertrend'] = df.loc[i, 'lowerband']
+            if df["close"][i] > df.loc[i - 1, "upperband"]:
+                df.loc[i, "supertrend"] = df.loc[i, "upperband"]
+            elif df["close"][i] < df.loc[i - 1, "lowerband"]:
+                df.loc[i, "supertrend"] = df.loc[i, "lowerband"]
             else:
-                df.loc[i, 'supertrend'] = df.loc[i-1, 'supertrend']
+                df.loc[i, "supertrend"] = df.loc[i - 1, "supertrend"]
 
         return df
 
@@ -220,7 +227,9 @@ class TradingAnalyzer:
         low = self.df["low"].min()
         fib_levels = fib(high, low)
         sorted_fib_levels = sorted(fib_levels.values())
-        five_nearest_fib = sorted(sorted_fib_levels, key=lambda x: abs(x - current_price))[:5]
+        five_nearest_fib = sorted(
+            sorted_fib_levels, key=lambda x: abs(x - current_price)
+        )[:5]
 
         fib_pivots = self.calculate_fibonacci_pivots(
             self.df["high"].max(), self.df["low"].min(), self.df["close"].iloc[-1]
@@ -232,16 +241,22 @@ class TradingAnalyzer:
         neon_green = Fore.LIGHTGREEN_EX
         neon_magenta = Fore.LIGHTMAGENTA_EX
 
-        self.logger.info(f"{neon_yellow}Current Price: {current_price:.8f}{Style.RESET_ALL}")
+        self.logger.info(
+            f"{neon_yellow}Current Price: {current_price:.8f}{Style.RESET_ALL}"
+        )
         self.logger.info(f"{neon_yellow}Trend: {trend}{Style.RESET_ALL}")
-        self.logger.info(f"{neon_yellow}5 Nearest Fibonacci Levels: {', '.join([f'{level:.8f}' for level in five_nearest_fib])}{Style.RESET_ALL}")
+        self.logger.info(
+            f"{neon_yellow}5 Nearest Fibonacci Levels: {', '.join([f'{level:.8f}' for level in five_nearest_fib])}{Style.RESET_ALL}"
+        )
 
         print(f"{neon_magenta}Fibonacci Pivots:{Style.RESET_ALL}")
         for level, value in fib_pivots.items():
             print(f"{level}: {neon_cyan}{value:.8f}{Style.RESET_ALL}")
 
         if entry_signal:
-            self.logger.info(f"{neon_green}Trade Signal: {entry_signal}{Style.RESET_ALL}")
+            self.logger.info(
+                f"{neon_green}Trade Signal: {entry_signal}{Style.RESET_ALL}"
+            )
         else:
             self.logger.info("No trade signal.")
 
@@ -259,25 +274,49 @@ class TradingAnalyzer:
         self.df["SMA_9"] = SMAIndicator(self.df["close"], window=9).sma_indicator()
         self.df["MACD"] = MACD(self.df["close"]).macd()
         self.df["RSI"] = rsi(self.df["close"], window=RSI_WINDOW)
-        self.df["Stoch_RSI"] = StochasticOscillator(self.df["close"], self.df["low"], self.df["close"], window=STOCH_WINDOW, smooth_window=STOCH_SMOOTH_WINDOW).stoch()
+        self.df["Stoch_RSI"] = StochasticOscillator(
+            self.df["close"],
+            self.df["low"],
+            self.df["close"],
+            window=STOCH_WINDOW,
+            smooth_window=STOCH_SMOOTH_WINDOW,
+        ).stoch()
         self.df["EMA_200"] = EMAIndicator(self.df["close"], window=200).ema_indicator()
-        self.df["fast_ma"] = EMAIndicator(self.df["close"], window=FAST_MA_WINDOW).ema_indicator()
-        self.df["slow_ma"] = EMAIndicator(self.df["close"], window=SLOW_MA_WINDOW).ema_indicator()
-        self.df["ADX"] = ADXIndicator(self.df["high"], self.df["low"], self.df["close"]).adx()
+        self.df["fast_ma"] = EMAIndicator(
+            self.df["close"], window=FAST_MA_WINDOW
+        ).ema_indicator()
+        self.df["slow_ma"] = EMAIndicator(
+            self.df["close"], window=SLOW_MA_WINDOW
+        ).ema_indicator()
+        self.df["ADX"] = ADXIndicator(
+            self.df["high"], self.df["low"], self.df["close"]
+        ).adx()
         self.df["momentum"] = self.df["close"].diff()
-        self.df["momentum_wma_10"] = self.df["momentum"].rolling(window=10, win_type="triang").mean()
-        self.df["volume_ma_10"] = SMAIndicator(self.df["volume"], window=10).sma_indicator()
-        self.df["volume_spike"] = self.df["volume"] > (self.df["volume_ma_10"] * VOLUME_SPIKE_THRESHOLD)
+        self.df["momentum_wma_10"] = (
+            self.df["momentum"].rolling(window=10, win_type="triang").mean()
+        )
+        self.df["volume_ma_10"] = SMAIndicator(
+            self.df["volume"], window=10
+        ).sma_indicator()
+        self.df["volume_spike"] = self.df["volume"] > (
+            self.df["volume_ma_10"] * VOLUME_SPIKE_THRESHOLD
+        )
         self.df = self.calculate_supertrend(self.df)
 
     def identify_support_resistance(self) -> Tuple[List[float], List[float]]:
         """Identifies support and resistance levels."""
         data = self.df["close"].values
         maxima, minima = [], []
-        for i in range(SUPPORT_RESISTANCE_WINDOW, len(data) - SUPPORT_RESISTANCE_WINDOW):
-            if data[i] == max(data[i - SUPPORT_RESISTANCE_WINDOW:i + SUPPORT_RESISTANCE_WINDOW]):
+        for i in range(
+            SUPPORT_RESISTANCE_WINDOW, len(data) - SUPPORT_RESISTANCE_WINDOW
+        ):
+            if data[i] == max(
+                data[i - SUPPORT_RESISTANCE_WINDOW : i + SUPPORT_RESISTANCE_WINDOW]
+            ):
                 maxima.append(data[i])
-            if data[i] == min(data[i - SUPPORT_RESISTANCE_WINDOW:i + SUPPORT_RESISTANCE_WINDOW]):
+            if data[i] == min(
+                data[i - SUPPORT_RESISTANCE_WINDOW : i + SUPPORT_RESISTANCE_WINDOW]
+            ):
                 minima.append(data[i])
         return sorted(maxima, reverse=True), sorted(minima)
 
@@ -298,10 +337,7 @@ class TradingAnalyzer:
         return abs(price - level) / price <= threshold
 
     def determine_entry_signal(
-        self,
-        current_price: float,
-        supports,
-        resistances
+        self, current_price: float, supports, resistances
     ) -> Optional[str]:
         """Determines the entry signal based on current price and levels."""
         trend = self.determine_trend()
@@ -319,7 +355,9 @@ class TradingAnalyzer:
         fib_pivots = self.calculate_fibonacci_pivots(
             self.df["high"].max(), self.df["low"].min(), self.df["close"].iloc[-1]
         )
-        near_fib = any(self.is_near_level(current_price, level) for level in fib_pivots.values())
+        near_fib = any(
+            self.is_near_level(current_price, level) for level in fib_pivots.values()
+        )
         near_support = any(self.is_near_level(current_price, s) for s in supports)
         near_resistance = any(self.is_near_level(current_price, r) for r in resistances)
 
@@ -328,7 +366,7 @@ class TradingAnalyzer:
         score += 1 if fast_ma > slow_ma else -1
         score += 1 if stoch_rsi < RSI_OVERSOLD else -1
         score += 1 if volume_spike else 0
-        score += 1 if supertrend == self.df['upperband'].iloc[-1] else -1
+        score += 1 if supertrend == self.df["upperband"].iloc[-1] else -1
 
         if score > 1 and (near_fib or near_support or near_resistance):
             return "long"
@@ -374,9 +412,12 @@ class TradingAnalyzer:
 
         return f"{trend_strength} {trend_direction}"
 
+
 if __name__ == "__main__":
     # Initialize logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     logger = logging.getLogger("TradingAnalyzer")
 
     # Prompt user for symbol and interval
@@ -394,6 +435,6 @@ if __name__ == "__main__":
         else:
             # Perform the analysis
             analyzer.analyze(current_price)
-        
+
         # Wait for 20 seconds before the next iteration
         time.sleep(20)
