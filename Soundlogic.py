@@ -28,7 +28,9 @@ PRECISION = 8  # Set precision for floating-point numbers
 
 # Logging setup
 os.makedirs(LOG_DIR, exist_ok=True)
-log_file = os.path.join(LOG_DIR, f"trading_bot_{datetime.now(ST_LOUIS_TZ).strftime('%y%m%d')}.log")
+log_file = os.path.join(
+    LOG_DIR, f"trading_bot_{datetime.now(ST_LOUIS_TZ).strftime('%y%m%d')}.log"
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -53,7 +55,7 @@ def retry_request(func, *args, **kwargs):
         except Exception as e:
             logger.warning(f"Retry {retries + 1}/{MAX_RETRIES} after error: {e}")
             retries += 1
-            time.sleep(RETRY_DELAY * (2 ** retries))
+            time.sleep(RETRY_DELAY * (2**retries))
     logger.error(f"Max retries exceeded for function {func.__name__}.")
     return None
 
@@ -64,19 +66,38 @@ class BybitAPI:
         self.session = HTTP(api_key=API_KEY, api_secret=API_SECRET, testnet=TESTNET)
         self.logger = logger
 
-    def fetch_klines(self, symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
+    def fetch_klines(
+        self, symbol: str, interval: str, limit: int = 200
+    ) -> pd.DataFrame:
         """Fetch historical kline data."""
         try:
-            response = self.session.get_kline(category="linear", symbol=symbol, interval=interval, limit=limit)
+            response = self.session.get_kline(
+                category="linear", symbol=symbol, interval=interval, limit=limit
+            )
             if response["retCode"] != 0:
                 self.logger.error(f"Bybit API Error: {response['retMsg']}")
                 return pd.DataFrame()
             df = pd.DataFrame(
                 response["result"]["list"],
-                columns=["start_time", "open", "high", "low", "close", "volume", "turnover"],
+                columns=[
+                    "start_time",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "turnover",
+                ],
             )
-            df["start_time"] = pd.to_datetime(pd.to_numeric(df["start_time"]), unit="ms", utc=True)
-            return df.astype({col: float for col in ["open", "high", "low", "close", "volume", "turnover"]})
+            df["start_time"] = pd.to_datetime(
+                pd.to_numeric(df["start_time"]), unit="ms", utc=True
+            )
+            return df.astype(
+                {
+                    col: float
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]
+                }
+            )
         except Exception as e:
             self.logger.error(f"Error fetching klines: {e}")
             return pd.DataFrame()
@@ -89,7 +110,9 @@ class BybitAPI:
                 self.logger.error(f"Bybit API Error: {response['retMsg']}")
                 return None
             ticker_info = response.get("result", {}).get("list", [])[0]
-            return float(ticker_info["lastPrice"]) if "lastPrice" in ticker_info else None
+            return (
+                float(ticker_info["lastPrice"]) if "lastPrice" in ticker_info else None
+            )
         except Exception as e:
             self.logger.error(f"Error fetching current price: {e}")
             return None
@@ -108,7 +131,9 @@ class TechnicalAnalyzer:
     def add_indicators(self):
         """Add technical indicators to the DataFrame."""
         self.df["RSI"] = RSIIndicator(self.df["close"], window=14).rsi()
-        self.df["ATR"] = AverageTrueRange(self.df["high"], self.df["low"], self.df["close"], window=14).average_true_range()
+        self.df["ATR"] = AverageTrueRange(
+            self.df["high"], self.df["low"], self.df["close"], window=14
+        ).average_true_range()
         self.df["EMA_fast"] = EMAIndicator(self.df["close"], window=9).ema_indicator()
         self.df["EMA_slow"] = EMAIndicator(self.df["close"], window=21).ema_indicator()
 
