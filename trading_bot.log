@@ -209,3 +209,81 @@
     "trend_wma": "neutral",
     "trend_vpt": "downward"
 }
+2025-01-16 06:44:46 CST - trading_bot - INFO - Bybit API Base URL: https://api.bybit.com
+2025-01-16 06:44:48 CST - trading_bot - ERROR - Failed to calculate Aroon window must be an integer 0 or greater
+2025-01-16 06:44:48 CST - trading_bot - WARNING - Indicator series empty cannot determine trend
+2025-01-16 06:44:48 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-16 06:44:48 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-16 06:44:48 CST - trading_bot - WARNING - SMA data is empty cannot calculate MA trend
+2025-01-16 06:44:48 CST - trading_bot - INFO - {
+    "symbol": "BTCUSDT",
+    "interval": "5",
+    "price": 99320.1,
+    "timestamp": "2025-01-16T12:44:48.870982+00:00",
+    "supports_resistances": {
+        "Support (Dynamic)": [
+            99528.0,
+            0.012936193467899083
+        ],
+        "Resistance (Dynamic)": [
+            100530.4,
+            0.31010290504237237
+        ]
+    },
+    "pivot_points": {
+        "Pivot (Custom)": 100025.88,
+        "R1 (Custom)": 100361.76000000001,
+        "S1 (Custom)": 99851.76000000001,
+        "R2 (Custom)": 100535.88,
+        "S2 (Custom)": 99515.88,
+        "R3 (Custom)": 100871.76000000001,
+        "S3 (Custom)": 99341.76000000001
+    },
+    "trend_ma": "upward",
+    "trend_rsi": "neutral",
+    "trend_macd": "upward",
+    "trend_adx": "downward",
+    "trend_obv": "downward",
+    "trend_aroon": "neutral",
+    "trend_wma": "neutral",
+    "trend_vpt": "downward"
+}
+2025-01-16 06:45:35 CST - trading_bot - INFO - Bybit API Base URL: https://api.bybit.com
+2025-01-16 06:45:38 CST - trading_bot - ERROR - Failed to calculate Aroon window must be an integer 0 or greater
+2025-01-16 06:45:38 CST - trading_bot - WARNING - Indicator series empty cannot determine trend
+2025-01-16 06:45:38 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-16 06:45:38 CST - trading_bot - ERROR - Failed to calculate SMA: min_periods must be an integer
+2025-01-16 06:45:38 CST - trading_bot - WARNING - SMA data is empty cannot calculate MA trend
+2025-01-16 06:45:38 CST - trading_bot - INFO - {
+    "symbol": "BTCUSDT",
+    "interval": "5",
+    "price": 99322.9,
+    "timestamp": "2025-01-16T12:45:38.077950+00:00",
+    "supports_resistances": {
+        "Support (Dynamic)": [
+            99528.0,
+            0.012936193467899083
+        ],
+        "Resistance (Dynamic)": [
+            100530.4,
+            0.31010290504237237
+        ]
+    },
+    "pivot_points": {
+        "Pivot (Custom)": 100208.51000000001,
+        "R1 (Custom)": 100386.12000000002,
+        "S1 (Custom)": 100027.02000000002,
+        "R2 (Custom)": 100567.61000000002,
+        "S2 (Custom)": 99849.41,
+        "R3 (Custom)": 100745.22000000003,
+        "S3 (Custom)": 99667.92000000001
+    },
+    "trend_ma": "upward",
+    "trend_rsi": "neutral",
+    "trend_macd": "upward",
+    "trend_adx": "downward",
+    "trend_obv": "downward",
+    "trend_aroon": "neutral",
+    "trend_wma": "neutral",
+    "trend_vpt": "downward"
+}
