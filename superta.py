@@ -8,7 +8,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import numpy as np
 from ta.momentum import RSIIndicator
-from ta.trend import EMAIndicator, ADXIndicator
+from ta.trend import EMAIndicator, ADXIndicator, MACD
+from ta.volatility import BollingerBands
 from dotenv import load_dotenv
 from colorama import init, Fore, Style
 from pybit.unified_trading import HTTP
@@ -124,16 +125,23 @@ class TradingAnalyzer:
             self.df["ADX"] = ADXIndicator(self.df["high"], self.df["low"], self.df["close"]).adx()
             self.df["fast_ma"] = EMAIndicator(self.df["close"], window=FAST_MA_WINDOW).ema_indicator()
             self.df["slow_ma"] = EMAIndicator(self.df["close"], window=SLOW_MA_WINDOW).ema_indicator()
+            self.df["MACD"] = MACD(self.df["close"]).macd()
+            bb_indicator = BollingerBands(close=self.df["close"])
+            self.df["bb_high"] = bb_indicator.bollinger_hband()
+            self.df["bb_low"] = bb_indicator.bollinger_lband()
         except Exception as e:
             self.logger.error(f"Error adding indicators: {e}")
 
     def determine_trend(self) -> str:
         adx = self.df["ADX"].iloc[-1]
+        macd = self.df["MACD"].iloc[-1]
         if adx < ADX_THRESHOLD:
             return "neutral"
-        if self.df["fast_ma"].iloc[-1] > self.df["slow_ma"].iloc[-1]:
+        if self.df["fast_ma"].iloc[-1] > self.df["slow_ma"].iloc[-1] and macd > 0:
             return "bullish"
-        return "bearish"
+        if self.df["fast_ma"].iloc[-1] < self.df["slow_ma"].iloc[-1] and macd < 0:
+            return "bearish"
+        return "neutral"
 
     def get_signal(self) -> Dict[str, Any]:
         trend = self.determine_trend()
